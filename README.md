@@ -66,9 +66,21 @@ mobile/
 ## Структура сервера
 
 server/
- ├─ src/
- │   └─ index.ts      ← точка входа сервера
- ├─ package.json
- └─ tsconfig.json
-
-MIT License
+│   package.json
+│   tsconfig.json
+│   .env
+│
+├── src/
+│   ├── index.ts              # Точка входа сервера
+│   ├── app.ts                # Настройка Express приложения
+│   ├── routes/
+│   │   └── history.ts        # Роут для истории
+│   ├── controllers/
+│   │   └── historyController.ts
+│   ├── services/
+│   │   └── gptService.ts     # Работа с GPT API
+│   └── utils/
+│       └── random.ts         # Вспомогательные функции, например для рандома
+│
+└── data/
+    └── history.json          # JSON файл с примерами истории

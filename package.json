@@ -3,21 +3,25 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-"scripts": {
-  "dev": "nodemon --watch src --exec ts-node src/index.ts",
-  "build": "tsc",
-  "start": "node dist/index.js"
-},
+  "scripts": {
+    "dev": "nodemon --watch src --exec ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "express": "^5.1.0"
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "openai": "^6.7.0",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
     "@types/express": "^5.0.4",
     "@types/node": "^24.9.1",
+    "@types/uuid": "^10.0.0",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
