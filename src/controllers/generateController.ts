@@ -1,10 +1,11 @@
 import { Request, Response } from 'express';
-import { generateMotorcycleArticle, readHistory } from '../services/gptService';
+import { generateArticle, readHistory } from '../services/gptService';
+import { History } from '../types/hystory';
 
 export const generateMotorcycle = async (req: Request, res: Response) => {
   try {
-    const article = await generateMotorcycleArticle();
-    const history = readHistory();
+    const article = await generateArticle();
+    const history: History[] = readHistory();
 
     // Простейший HTML
     const html = `
@@ -12,15 +13,16 @@ export const generateMotorcycle = async (req: Request, res: Response) => {
     <html lang="en">
     <head>
       <meta charset="UTF-8">
-      <title>История мотоциклов</title>
+      <title>История </title>
     </head>
     <body>
-      <h1>История ID: ${history[0].id}</h1>
-      <h2>На немецком:</h2>
+      <h1>title : ${history[0].title}</h1>
+       <h2>description : ${history[0].description}</h2>
+      <h3>На немецком:</h3>
       <p>${history[0].de}</p>
-      <h2>На русском:</h2>
+      <h3>На русском:</h3>
       <p>${history[0].ru}</p>
-      <h2>Изображение:</h2>
+      <h3>Изображение:</h3>
       <img src="${history[0].image}" alt="Motorcycle Image" style="max-width:600px;">
     </body>
     </html>
