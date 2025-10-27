@@ -1,8 +1,8 @@
-import { Request, Response } from 'express';
+/*import { Request, Response } from 'express';
 import { generateArticle, readHistory } from '../services/gptService';
 import { History } from '../types/hystory';
 
-export const generateMotorcycle = async (req: Request, res: Response) => {
+export const generateNews = async (req: Request, res: Response) => {
   try {
     const article = await generateArticle();
     const history: History[] = readHistory();
@@ -34,3 +34,4 @@ export const generateMotorcycle = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+*/

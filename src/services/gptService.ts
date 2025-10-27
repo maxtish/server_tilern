@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+/*import OpenAI from 'openai';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
@@ -92,3 +92,4 @@ export const generateArticle = async (): Promise<History> => {
   console.log('Generated motorcycle article:', fullStory);
   return fullStory;
 };
+*/
