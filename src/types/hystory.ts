@@ -29,16 +29,8 @@ export interface BaseWord {
 }
 export type WordType = 'noun' | 'verb' | 'other';
 
-// Существительное —  с формами
-export interface NounWord extends BaseWord {
-  type: 'noun';
-  word: { singular: string; plural: string }; // немецкое слово в ед. и мн. числе
-}
-
-// Глагол или другое — просто слово
-export interface SimpleWord extends BaseWord {
-  type: 'verb' | 'other';
-  word: string; // немецкое слово
-}
-
-export type Word = NounWord | SimpleWord;
+export type Word = {
+  type: WordType;
+  word: string | { singular: string | null; plural: string | null };
+  translation: string;
+};

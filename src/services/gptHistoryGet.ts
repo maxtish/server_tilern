@@ -3,8 +3,9 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
-import { History } from '../types/hystory';
+import { History, Word } from '../types/hystory';
 import { downloadImage } from '../utils/downloadImage';
+import { splitGermanText } from '../utils/splitGermanText';
 
 dotenv.config();
 
@@ -12,7 +13,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const historyFilePath = path.join(__dirname, '../../data/history.json');
+const historyFilePath = path.join(__dirname, '../../data/stories.json');
 
 // --- 1️⃣ Чтение истории ---
 export const readHistory = (): History[] => {
@@ -34,7 +35,7 @@ export const saveHistory = (story: History) => {
 };
 
 // --- 3️⃣ Генерация истории через GPT ---
-export const historyGetGPT = async (): Promise<History> => {
+export const historyGetGPT = async (initialHistory: string): Promise<History> => {
   const emptyStory: History = {
     id: ' ',
     title: { ru: '', de: '' },
@@ -48,35 +49,23 @@ export const historyGetGPT = async (): Promise<History> => {
     words: [],
   };
 
-  const initialHistory =
-    'Der Vulkan ist ein Berg, aus dem heiße Lava, Asche und Gas kommen. Wenn ein Vulkan aktiv ist, kann er ausbrechen. Die Lava ist sehr heiß und fließt den Berg hinunter. Viele Vulkane liegen in Italien, Island und Japan.';
-
   // --- 4️⃣ Запрос к ChatGPT ---
   const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    temperature: 0.7,
+    model: 'gpt-4o',
+    temperature: 0.5,
     messages: [
       {
         role: 'system',
-        content: `Ты — классификатор и переводчик немецких историй. 
+        content: `Ты профессиональный переводчик немецких историй, определи уровень немецкого языка и запиши в languageLevel. в fullStory запиши полный текст истории на немецком и перевод на русский.
 Заполни строго JSON в формате, как в этом примере:
-${JSON.stringify(emptyStory, null, 2)}.
-
-Описание полей:
+${JSON.stringify(emptyStory, null, 2)}. 
+Инструкция по заполнению полей:
 - title.de — короткий заголовок истории (на немецком)
 - title.ru — перевод заголовка на русский
 - fullStory.de — полный текст истории (на немецком)
 - fullStory.ru — перевод всей истории на русский
 - languageLevel — оцени уровень немецкого (A1–C2)
-- words - Включай абсолютно все слова, даже очень короткие или служебные: der, die, das, ist, ein, eine, und и т. д. все что есть в тексте, а в поле translation указывай перевод с учетом контекста истории. 
-  Если существительное — укажи артикли { singular, plural }. вот типизация ----
-export type Word = {
-  type: 'verb' | 'other' | 'noun';
-  word: string | { singular: string; plural: string };
-  translation: string;
-};
-----
-- audioUrl — оставь пустым ''
+остальные поля не заполняй, оставь как в примере.
 Ответ должен быть только в формате JSON.`,
       },
       { role: 'user', content: initialHistory },
@@ -97,7 +86,74 @@ export type Word = {
   // --- 5️⃣ Добавляем ID и сохраняем ---
   parsedStory.id = uuidv4();
 
-  // 6 Генерация изображения
+  // --- 🔹 5️⃣ Разбиваем текст на слова
+  const words = splitGermanText(parsedStory.fullStory.de);
+
+  // --- 🔹 6️⃣ Формируем промпт для анализа слов
+  const prompt = `
+Ты — профессиональный преподаватель немецкого языка.
+Проанализируй немецкий текст и верни JSON-массив объектов слов.
+
+Каждый элемент — это объект формата:
+{
+  "type": "verb" | "noun" | "other",
+  "word": string | { "singular": string; "plural": string },
+  "translation": string // перевод на русский с учётом контекста
+}
+
+Правила:
+1. Если слово — существительное:
+   - включи формы единственного и множественного числа;
+   - в единственном числе добавляй артикль (der, die, das) перед словом;
+   - в форме множественного числа добавляй артикль "die" (если существует);
+   - если множественное число отсутствует, ставь null;
+   Пример: 
+   {
+     "type": "noun",
+     "word": { "singular": "der Hund", "plural": "die Hunde" },
+     "translation": "собака"
+   }
+
+2. Если слово — артикль (der, die, das, ein, eine, einen, einer и т.д.):
+   - тип ставь "other";
+   - перевод давай в контексте (например, "определённый артикль мужского рода").
+
+3. Если слово — глагол, переводи в контексте (например, "geht" → "идёт").
+
+4. Используй только JSON, без комментариев, без текста перед или после JSON.
+
+
+Текст:
+${parsedStory.fullStory.de}
+
+Слова:
+${words.join(', ')}
+`;
+
+  // --- 🔹 7️⃣ Запрос к ChatGPT для анализа слов
+  const completionWords = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.2,
+  });
+
+  const content = completionWords.choices[0]?.message?.content?.trim();
+  if (!content) throw new Error('Пустой ответ от OpenAI при анализе слов');
+
+  try {
+    // Ищем JSON-массив в ответе
+    const jsonMatch = content.match(/\[.*\]/s);
+    if (!jsonMatch) throw new Error('Не удалось найти JSON в ответе GPT (analyze words)');
+
+    const parsedWords: Word[] = JSON.parse(jsonMatch[0]);
+    parsedStory.words = parsedWords; // <---- вот ключевая строка!
+  } catch (err) {
+    console.error('❌ Ошибка парсинга JSON для слов:', err);
+    console.error('Ответ GPT:', content);
+    parsedStory.words = [];
+  }
+
+  // --- 🔹 8️⃣ Генерация изображения
 
   const imageResponse = await openai.images.generate({
     model: 'dall-e-3',
@@ -125,6 +181,8 @@ export type Word = {
   }
 
   parsedStory.image = localImagePath || 'https://via.placeholder.com/1024?text=No+Image';
+
+  // --- 🔹 9️⃣ Сохраняем историю
 
   saveHistory(parsedStory);
 

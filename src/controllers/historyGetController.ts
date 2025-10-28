@@ -1,17 +1,58 @@
-import { Request, Response } from 'express';
-import { historyGetGPT, readHistory } from '../services/gptHistoryGet';
-import { History } from '../types/hystory';
+import { Request, Response, NextFunction } from 'express';
+import { readHistory } from '../services/gptHistoryGet';
+import { History, Word } from '../types/hystory';
 
-export const generateNews = async (req: Request, res: Response) => {
+export const getHistoryController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const article = await historyGetGPT();
     const history: History[] = readHistory();
-
+    const htmlnewline = ` <h2>Истории пока нет 😢</h2>   <a href="/addhistory" style="
+        padding: 10px 20px;
+        background: #28a745;
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: bold;
+        transition: background 0.2s;
+      "
+      onmouseover="this.style.background='#218838'"
+      onmouseout="this.style.background='#28a745'">
+      ➕ Добавить историю
+    </a>`;
     if (!history.length) {
-      return res.send('<h2>Истории пока нет 😢</h2>');
+      return res.send(htmlnewline);
     }
 
-    // HTML со стилями
+    // ✅ Функция рендера слова
+    const renderWordHTML = (w: Word): string => {
+      if (typeof w.word === 'string') {
+        // глаголы, артикли и пр.
+        return `
+          <div class="word">
+            <span class="type">${w.type}</span>: 
+            <b>${w.word}</b> → ${w.translation}
+          </div>`;
+      }
+
+      if (typeof w.word === 'object' && w.word !== null) {
+        const singular = w.word.singular || '';
+        const plural = w.word.plural || '';
+
+        let wordPart = '';
+        if (singular && plural) wordPart = `<b>${singular}</b> (${plural})`;
+        else if (singular) wordPart = `<b>${singular}</b>`;
+        else if (plural) wordPart = `<b>${plural}</b>`;
+
+        return `
+          <div class="word">
+            <span class="type">${w.type}</span>: 
+            ${wordPart} → ${w.translation}
+          </div>`;
+      }
+
+      return '';
+    };
+
+    // ✅ Основной HTML
     const html = `
     <!DOCTYPE html>
     <html lang="ru">
@@ -92,6 +133,19 @@ export const generateNews = async (req: Request, res: Response) => {
     </head>
     <body>
       <h1>📚 Истории TiLern</h1>
+       <a href="/addhistory" style="
+        padding: 10px 20px;
+        background: #28a745;
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: bold;
+        transition: background 0.2s;
+      "
+      onmouseover="this.style.background='#218838'"
+      onmouseout="this.style.background='#28a745'">
+      ➕ Добавить историю
+    </a>
       <div class="stories">
         ${history
           .map(
@@ -116,13 +170,7 @@ export const generateNews = async (req: Request, res: Response) => {
               story.words?.length
                 ? `<div class="word-list">
                     <h4>🗣️ Слова:</h4>
-                    ${story.words
-                      .map((w) =>
-                        w.type === 'noun'
-                          ? `<div class="word"><span class="type">${w.type}</span>: <b>${w.word.singular}</b> → ${w.translation}</div>`
-                          : `<div class="word"><span class="type">${w.type}</span>: <b>${w.word}</b> → ${w.translation}</div>`
-                      )
-                      .join('')}
+                    ${story.words.map(renderWordHTML).join('')}
                   </div>`
                 : ''
             }
@@ -137,7 +185,6 @@ export const generateNews = async (req: Request, res: Response) => {
 
     res.send(html);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    next(error); // передаем в централизованный error handler
   }
 };
