@@ -34,3 +34,8 @@ export type Word = {
   word: string | { singular: string | null; plural: string | null };
   translation: string;
 };
+
+export interface StoryTiming {
+  text: string;
+  wordTiming: WordTiming[];
+}
