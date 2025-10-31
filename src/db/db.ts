@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+import bcrypt from 'bcrypt';
 
 dotenv.config();
 
@@ -14,13 +15,14 @@ export const testDB = async () => {
     client.release();
   } catch (err) {
     console.error('🚨 Postgres connection error:', err);
-    process.exit(1); // завершить процесс если БД недоступна
+    process.exit(1);
   }
 };
 
 export const initDB = async () => {
   const client = await pool.connect();
   try {
+    // Создание таблицы пользователей
     await client.query(`
       CREATE TABLE IF NOT EXISTS "User" (
         id SERIAL PRIMARY KEY,
@@ -33,16 +35,26 @@ export const initDB = async () => {
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       );
-      
-      CREATE TABLE IF NOT EXISTS "Story" (
-        id SERIAL PRIMARY KEY,
-        title TEXT NOT NULL,
-        content TEXT NOT NULL,
-        author_id INT REFERENCES "User"(id),
-        created_at TIMESTAMP DEFAULT NOW()
-      );
     `);
-    console.log('✅ Tables are ready');
+    console.log('✅ Users table is ready');
+
+    // Проверяем, есть ли админ
+    const res = await client.query('SELECT * FROM "User" WHERE email=$1', ['admin']);
+    if (res.rows.length === 0) {
+      // Хешируем пароль
+      const hashedPassword = await bcrypt.hash('admin', 10);
+
+      // Создаём админ-пользователя
+      await client.query('INSERT INTO "User"(email, password_hash, name, role) VALUES($1,$2,$3,$4)', [
+        'admin',
+        hashedPassword,
+        'Administrator',
+        'ADMIN',
+      ]);
+      console.log('✅ Admin user created: admin / admin');
+    } else {
+      console.log('ℹ️ Admin user already exists');
+    }
   } finally {
     client.release();
   }
