@@ -24,28 +24,10 @@ TiLern/ ← корень проекта
 #### Мобильное приложение
 
 ```bash
-cd mobile
-npm install
-# или
-yarn install
 
-#  2. Запуск проекта
+docker-compose down -v  
+docker-compose up -d
 
-cd mobile
-# Запуск Metro Bundler
-npx react-native start
-
-# В отдельном терминале
-npx react-native run-android
-# или
-npx react-native run-ios
-
-#  Сервер
-cd server
-# Запуск сервера в режиме разработки
-npm run dev
-# или
-yarn dev
 ```
 
 ## Структура мобильного приложения
