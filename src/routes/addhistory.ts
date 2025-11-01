@@ -1,12 +1,10 @@
 import { Router } from 'express';
-import { showAddHistoryForm, submitHistory } from '../controllers/historyAddController';
+import { authenticate, authorize } from '../middleware/auth';
+import { submitHistory } from '../controllers/historyAddController';
 
 const router = Router();
 
-// GET — показать форму
-router.get('/addhistory', showAddHistoryForm);
-
-// POST — отправка формы
-router.post('/addhistory', submitHistory);
+// POST /history — только для админа
+router.post('/history', authenticate, authorize('ADMIN'), submitHistory);
 
 export default router;

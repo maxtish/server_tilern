@@ -55,6 +55,20 @@ export const initDB = async () => {
     } else {
       console.log('ℹ️ Admin user already exists');
     }
+    // Проверяем, есть ли обычный пользователь
+    const userRes = await client.query('SELECT * FROM "User" WHERE email=$1', ['user']);
+    if (userRes.rows.length === 0) {
+      const hashedPassword = await bcrypt.hash('user', 10);
+      await client.query('INSERT INTO "User"(email, password_hash, name, role) VALUES($1,$2,$3,$4)', [
+        'user',
+        hashedPassword,
+        'User',
+        'USER',
+      ]);
+      console.log('✅ Test user created: user / user');
+    } else {
+      console.log('ℹ️ Test user already exists');
+    }
   } finally {
     client.release();
   }
