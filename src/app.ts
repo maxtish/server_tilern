@@ -6,13 +6,12 @@ const app = express();
 
 app.use(express.json());
 
-// Статика для изображений
-app.use('/images', express.static(path.join(__dirname, '../public/images')));
-app.use('/audio', express.static(path.join(__dirname, '../public/audio')));
-
 // Для POST данных формы
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// Раздача статических файлов из public
+app.use('/media', express.static(path.join(__dirname, '../public/media')));
 
 // Все роуты
 app.use('/', routes);

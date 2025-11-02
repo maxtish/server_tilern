@@ -4,8 +4,9 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { History, StoryTiming, Word, WordTiming } from '../types/hystory';
-import { downloadImage } from '../utils/downloadImage';
 import { splitGermanText } from '../utils/splitGermanText';
+import { saveHistoryToDB } from '../db/historyDB';
+import { downloadAndStoreImage, getLocalMediaPath, saveBuffer } from '../utils/mediaStorage';
 
 dotenv.config();
 
@@ -13,44 +14,18 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const historyFilePath = path.join(__dirname, '../../data/stories.json');
 const AUDIO_DIR = path.join(__dirname, '../../public/audio');
 if (!fs.existsSync(AUDIO_DIR)) {
   fs.mkdirSync(AUDIO_DIR, { recursive: true });
 }
 
-// --- 1️⃣ Чтение истории ---
-export const readHistory = (): History[] => {
-  if (!fs.existsSync(historyFilePath)) return [];
-  const data = fs.readFileSync(historyFilePath, 'utf-8').trim();
-  if (!data) return [];
-  try {
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
-};
-
-// --- 2️⃣ Сохранение новой истории (добавление в массив, а не перезапись) ---
-export const saveHistory = (story: History) => {
-  const histories = readHistory();
-  histories.push(story);
-  fs.writeFileSync(historyFilePath, JSON.stringify(histories, null, 2), 'utf-8');
-};
-
 // --- 3️⃣ Генерация истории через GPT ---
 export const historyGetGPT = async (initialHistory: string): Promise<History> => {
-  const emptyStory: History = {
-    id: ' ',
+  const emptyStory = {
     title: { ru: '', de: '' },
     description: '',
     fullStory: { de: '', ru: '' },
-    languageLevel: 'A1',
-    image: '',
-    isNew: true,
-    audioUrl: '',
-    wordTiming: [],
-    words: [],
+    languageLevel: '',
   };
 
   // --- 4️⃣ Запрос к ChatGPT ---
@@ -64,31 +39,37 @@ export const historyGetGPT = async (initialHistory: string): Promise<History> =>
 Заполни строго JSON в формате, как в этом примере:
 ${JSON.stringify(emptyStory, null, 2)}. 
 Инструкция по заполнению полей:
-- title.de — короткий заголовок истории (на немецком)
+- title.de — короткий заголовок истории на немецком
 - title.ru — перевод заголовка на русский
-- fullStory.de — полный текст истории (на немецком)
+- fullStory.de — полный текст истории на немецком
 - fullStory.ru — перевод всей истории на русский
-- languageLevel — оцени уровень немецкого (A1–C2)
-остальные поля не заполняй, оставь как в примере.
+- languageLevel — оцени уровень немецкого A1–C2
+
 Ответ должен быть только в формате JSON.`,
       },
       { role: 'user', content: initialHistory },
     ],
   });
 
-  const gptText = completion.choices[0].message?.content || '';
+  const contentA = completion.choices[0].message?.content || '';
   let parsedStory: History;
 
   try {
-    parsedStory = JSON.parse(gptText);
+    parsedStory = JSON.parse(contentA);
   } catch (e) {
     console.error('Ошибка парсинга JSON из ответа GPT:', e);
-    console.log('Сырой ответ:', gptText);
+    console.log('Сырой ответ:', contentA);
     throw new Error('GPT не вернул корректный JSON.');
   }
 
   // --- 5️⃣ Добавляем ID и сохраняем ---
   parsedStory.id = uuidv4();
+  parsedStory.viewsCount = 0;
+  parsedStory.likesCount = 0;
+  parsedStory.createdDate = new Date().toISOString();
+  parsedStory.updatedDate = new Date().toISOString();
+  parsedStory.authorName = 'AI Story Generator';
+  parsedStory.authorRole = 'ADMIN';
 
   // --- 🔹 5️⃣ Разбиваем текст на слова
   const words = splitGermanText(parsedStory.fullStory.de);
@@ -141,19 +122,19 @@ ${words.join(', ')}
     temperature: 0.2,
   });
 
-  const content = completionWords.choices[0]?.message?.content?.trim();
-  if (!content) throw new Error('Пустой ответ от OpenAI при анализе слов');
+  const contentB = completionWords.choices[0]?.message?.content?.trim();
+  if (!contentB) throw new Error('Пустой ответ от OpenAI при анализе слов');
 
   try {
     // Ищем JSON-массив в ответе
-    const jsonMatch = content.match(/\[.*\]/s);
+    const jsonMatch = contentB.match(/\[.*\]/s);
     if (!jsonMatch) throw new Error('Не удалось найти JSON в ответе GPT (analyze words)');
 
     const parsedWords: Word[] = JSON.parse(jsonMatch[0]);
     parsedStory.words = parsedWords; // <---- вот ключевая строка!
   } catch (err) {
     console.error('❌ Ошибка парсинга JSON для слов:', err);
-    console.error('Ответ GPT:', content);
+    console.error('Ответ GPT:', contentB);
     parsedStory.words = [];
   }
 
@@ -177,14 +158,12 @@ ${words.join(', ')}
 
   const imageUrl: string = imageResponse.data && imageResponse.data[0]?.url ? imageResponse.data[0].url : 'НЕТ URL';
 
-  let localImagePath = '';
-  // если URL существует, скачиваем
+  let imageUrlPublic = '';
   if (imageUrl) {
-    const fileName = `${parsedStory.id}.png`;
-    localImagePath = await downloadImage(imageUrl, fileName);
+    imageUrlPublic = await downloadAndStoreImage(parsedStory.id, imageUrl);
   }
 
-  parsedStory.image = localImagePath || 'https://via.placeholder.com/1024?text=No+Image';
+  parsedStory.imageUrl = imageUrlPublic || 'НЕТ URL';
 
   ////////////////////////////////////////////////////////////////////////////////
   // -------------------------------
@@ -201,14 +180,13 @@ ${words.join(', ')}
   });
 
   const audioBuffer = Buffer.from(await ttsResponse.arrayBuffer());
-  const audioFilename = `${parsedStory.id}.mp3`;
-  const audioPath = path.join(AUDIO_DIR, audioFilename);
-  fs.writeFileSync(audioPath, audioBuffer);
-  parsedStory.audioUrl = `/audio/${audioFilename}`;
+  const audioUrl = await saveBuffer(parsedStory.id, audioBuffer, 'mp3');
+  parsedStory.audioUrl = audioUrl;
 
   // -------------------------------
   // 2️⃣ Распознаем аудио через Whisper для таймингов
   // -------------------------------
+  const audioPath = getLocalMediaPath(parsedStory.id, 'mp3');
   const transcription = await openai.audio.transcriptions.create({
     file: fs.createReadStream(audioPath),
     model: 'whisper-1',
@@ -255,7 +233,7 @@ ${words.join(', ')}
 
   // --- 🔹 9️⃣ Сохраняем историю
 
-  saveHistory(parsedStory);
+  await saveHistoryToDB(parsedStory);
 
   console.log('✅ История успешно сохранена:', parsedStory.title.de);
   return parsedStory;

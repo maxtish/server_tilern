@@ -27,6 +27,7 @@ TiLern/ ← корень проекта
 
 docker-compose down -v  
 docker-compose up -d
+docker system prune -a --volumes
 
 ```
 

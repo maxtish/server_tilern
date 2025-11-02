@@ -6,7 +6,7 @@ export type UserRole = 'USER' | 'PREMIUM' | 'EDITOR' | 'ADMIN';
 
 // Интерфейс для пользователя, который будет храниться в req.user
 export interface AuthUser {
-  id: number;
+  id: string;
   role: UserRole;
   email?: string;
   name?: string;

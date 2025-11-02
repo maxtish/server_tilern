@@ -3,7 +3,7 @@ import jwt, { JwtPayload } from 'jsonwebtoken';
 const SECRET = process.env.JWT_SECRET || 'supersecret';
 
 interface MyPayload {
-  id: number;
+  id: string;
   role: string;
 }
 

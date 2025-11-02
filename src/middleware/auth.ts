@@ -5,7 +5,7 @@ import { UserRole } from '../types/express';
 // Определяем допустимые роли
 
 interface JwtPayload {
-  id: number;
+  id: string;
   role: UserRole;
   email?: string;
   name?: string;
