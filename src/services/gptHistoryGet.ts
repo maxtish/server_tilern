@@ -22,24 +22,50 @@ if (!fs.existsSync(AUDIO_DIR)) {
 }
 
 // --- 3️⃣ Генерация истории через GPT ---
+
 export const historyGetGPT = async (initialHistory: string): Promise<History> => {
+  let parsedStory: History = {
+    title: { de: '', ru: '' },
+    description: '',
+    fullStory: { de: initialHistory, ru: '' },
+    languageLevel: 'A1', // временно
+    id: '', // позже присвоим uuid
+    viewsCount: 0,
+    likesCount: 0,
+    createdDate: '',
+    updatedDate: '',
+    authorName: 'AI Story Generator',
+    authorRole: 'ADMIN',
+    words: [],
+    wordTiming: [],
+    audioUrl: '',
+    imageUrl: '',
+  };
+
+  console.log('Генерация истории через GPT!!!!!!!  ---');
   const emptyStory = {
     title: { ru: '', de: '' },
     description: '',
-    fullStory: { de: '', ru: '' },
-    languageLevel: '',
+    fullStory: { de: initialHistory, ru: '' },
+    languageLevel: 'A1',
   };
 
   // --- 4️⃣ Запрос к ChatGPT ---
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o',
-    temperature: 0.5,
+    temperature: 0.1,
     messages: [
       {
         role: 'system',
         content: `Ты профессиональный переводчик немецких историй, определи уровень немецкого языка и запиши в languageLevel. в fullStory запиши полный текст истории на немецком и перевод на русский.
-Заполни строго JSON в формате, как в этом примере:
-${JSON.stringify(emptyStory, null, 2)}. 
+Заполни строго JSON в том же формате. "interface History {
+  title: { de: string; ru: string };
+  description: string;
+  fullStory: {
+    ru: string;
+    de: string;
+  };
+  languageLevel: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';} "
 Инструкция по заполнению полей:
 - title.de — короткий заголовок истории на немецком
 - title.ru — перевод заголовка на русский
@@ -47,17 +73,34 @@ ${JSON.stringify(emptyStory, null, 2)}.
 - fullStory.ru — перевод всей истории на русский
 - languageLevel — оцени уровень немецкого A1–C2
 
-Ответ должен быть только в формате JSON.`,
+Ответ должен быть только в формате JSON. Ответ **только** в JSON, без пояснений и текста вокруг.`,
       },
-      { role: 'user', content: initialHistory },
+      { role: 'user', content: `${JSON.stringify(emptyStory, null, 2)}` },
     ],
   });
 
   const contentA = completion.choices[0].message?.content || '';
-  let parsedStory: History;
-
+  // Если есть ```json … ``` обрезаем
+  let cleanedContent = contentA.trim();
+  const codeBlockMatch = cleanedContent.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (codeBlockMatch) {
+    cleanedContent = codeBlockMatch[1].trim();
+  }
+  const levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
+  // Попытка парсинга
   try {
-    parsedStory = JSON.parse(contentA);
+    let gptData = {
+      title: { de: '', ru: '' },
+      description: '',
+      fullStory: { de: initialHistory, ru: '' },
+      languageLevel: 'A1',
+    };
+    gptData = JSON.parse(cleanedContent);
+    const level = gptData.languageLevel;
+    parsedStory.title = gptData.title || { de: '', ru: '' };
+    parsedStory.description = gptData.description || '';
+    parsedStory.fullStory = gptData.fullStory || { de: initialHistory, ru: '' };
+    parsedStory.languageLevel = levels.includes(level as any) ? (level as (typeof levels)[number]) : 'A1';
   } catch (e) {
     console.error('Ошибка парсинга JSON из ответа GPT:', e);
     console.log('Сырой ответ:', contentA);
@@ -74,6 +117,7 @@ ${JSON.stringify(emptyStory, null, 2)}.
   parsedStory.authorRole = 'ADMIN';
 
   // --- 🔹 5️⃣ Разбиваем текст на слова
+  console.log('Разбиваем текст на слова ---');
   const words: Word[] = sentenceToSkeleton(parsedStory.fullStory.de);
   console.log('ВОТ МАССИВ СЛОВ', JSON.stringify(words, null, 2));
   // --- 🔹 6️⃣ Формируем промпт для анализа слов
@@ -84,23 +128,27 @@ ${JSON.stringify(emptyStory, null, 2)}.
 - singular — форма в единственном числе (если слово существительное, иначе оставь пустым)  
 - plural — форма во множественном числе (если слово существительное, иначе оставь пустым)  
 - translation — перевод на русский язык  
-
+- все числа, знаки процентов и величины (например, °C, km, %) заменяй на текстовое значение, например:
+{ "type": "Substantiv", "word": "Grad Celsius", "plural": "", "singular": "Grad Celsius", "translation": "градус Цельсия" }
 Выведи результат в том же формате массива JSON.
 Пример ожидаемого результата:
 [
   { type: "Artikel", word: "Die", plural: "", singular: "", translation: "определённый артикль женского рода" },
-  { type: "Substantiv", word: "Traum", plural: "Träume", singular: "Traum", translation: "сон" },
+  { type: "Substantiv", word: "Traum", plural: "die Träume", singular: "der Traum", translation: "сон" },
   { type: "Verb", word: "haben", plural: "", singular: "", translation: "иметь" } 
 ]
 
 ВОТ МАССИВ СЛОВ:  ${JSON.stringify(words, null, 2)} 
+Ответ **только** в JSON, без пояснений и текста вокруг.
 `;
+
+  console.log('Запрос к ChatGPT для анализа слов---');
 
   // --- 🔹 7️⃣ Запрос к ChatGPT для анализа слов
   const completionWords = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: prompt }],
-    temperature: 0.2,
+    temperature: 0.1,
   });
 
   const contentB = completionWords.choices[0]?.message?.content?.trim();
@@ -120,7 +168,7 @@ ${JSON.stringify(emptyStory, null, 2)}.
   }
 
   // --- 🔹 8️⃣ Генерация изображения
-
+  console.log('Генерация изображения');
   const imageResponse = await openai.images.generate({
     model: 'dall-e-3',
     prompt: `
@@ -150,6 +198,7 @@ ${JSON.stringify(emptyStory, null, 2)}.
   // -------------------------------
   // 1️⃣ Генерация аудио через TTS
   // -------------------------------
+  console.log('Генерация аудио через TTS');
   const textToSpeak = parsedStory.fullStory.de; // ✅ правильный текст для озвучки
 
   const ttsResponse = await openai.audio.speech.create({
@@ -167,12 +216,17 @@ ${JSON.stringify(emptyStory, null, 2)}.
   // -------------------------------
   // 2️⃣ Распознаем аудио через Whisper для таймингов
   // -------------------------------
+
+  console.log('Распознаем аудио через Whisper для таймингов');
+
   const audioPath = getLocalMediaPath(parsedStory.id, 'mp3');
   const transcription = await openai.audio.transcriptions.create({
     file: fs.createReadStream(audioPath),
     model: 'whisper-1',
     response_format: 'verbose_json', // чтобы получить сегменты с таймингами
-    temperature: 0,
+    temperature: 0.2,
+    language: 'de',
+    prompt: 'необходимо точное время произношения слов.',
   });
 
   // -------------------------------

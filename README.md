@@ -28,7 +28,7 @@ TiLern/ ← корень проекта
 docker-compose down -v  
 docker-compose up -d
 docker system prune -a --volumes
-
+docker-compose up -d --build
 ```
 
 ## Структура мобильного приложения
