@@ -71,6 +71,25 @@ export const initDB = async () => {
 `);
     console.log('✅ HistoryLikes table is ready');
 
+    // --- Таблица сохранённых слов пользователя
+    // таблица
+    await client.query(`
+  CREATE TABLE IF NOT EXISTS "UserWords" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES "User"(id) ON DELETE CASCADE,
+    history_id UUID REFERENCES "History"(id) ON DELETE SET NULL,
+    word JSONB NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+`);
+
+    // уникальный индекс
+    await client.query(`
+  CREATE UNIQUE INDEX IF NOT EXISTS userwords_unique_word_idx
+  ON "UserWords"(user_id, (word->>'word'));
+`);
+    console.log('✅ UserWords table is ready');
+
     // --- Проверка и создание админа
     const res = await client.query('SELECT * FROM "User" WHERE email=$1', ['admin']);
     if (res.rows.length === 0) {

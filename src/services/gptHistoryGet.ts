@@ -190,7 +190,7 @@ ${words.join(', ')}
   const audioPath = getLocalMediaPath(parsedStory.id, 'mp3');
   const transcription = await openai.audio.transcriptions.create({
     file: fs.createReadStream(audioPath),
-    model: 'gpt-4o-transcribe',
+    model: 'whisper-1',
     response_format: 'verbose_json', // чтобы получить сегменты с таймингами
     temperature: 0,
   });
