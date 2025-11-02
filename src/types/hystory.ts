@@ -1,5 +1,5 @@
 export interface History {
-  id: string | null;
+  id: string;
   title: { de: string; ru: string };
   description: string;
   fullStory: {
@@ -30,15 +30,11 @@ export interface WordTiming {
 // Тип слова
 /////// Общий интерфейс для слова
 
-export interface BaseWord {
-  type: WordType; // тип слова
-  translation: string; // перевод слова на русский
-}
-export type WordType = 'noun' | 'verb' | 'other';
-
 export type Word = {
-  type: WordType;
-  word: string | { singular: string | null; plural: string | null };
+  type: string;
+  word: string;
+  plural: string;
+  singular: string;
   translation: string;
 };
 
@@ -106,7 +102,7 @@ export interface DBUserWord {
   id: string;
   user_id: string;
   history_id: string | null;
-  word: Word; // { type: 'noun' | 'verb' | 'other'; word: string | { singular: string; plural: string }; translation: string }
+  word: Word; //
   created_at: string; // timestamp в формате ISO
 }
 
