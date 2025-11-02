@@ -1,14 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
-
 import { History } from '../types/hystory';
-import { getAllHistories } from '../db/historyDB';
+import { getAllHistories, getAllHistoriesWithUserLikes } from '../db/historyDB';
 
 export const getHistoryController = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const history: History[] = await getAllHistories();
+    const userId = req.query.userId as string | undefined; // 🟢 берём из query-параметра
+    let histories: History[];
 
-    res.send(history);
+    if (userId) {
+      histories = await getAllHistoriesWithUserLikes(userId);
+    } else {
+      histories = await getAllHistories();
+    }
+
+    res.status(200).json(histories);
   } catch (error) {
-    next(error); // передаем в централизованный error handler
+    next(error);
   }
 };

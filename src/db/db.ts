@@ -40,23 +40,22 @@ export const initDB = async () => {
 
     // --- Таблица историй
     await client.query(`
-      CREATE TABLE IF NOT EXISTS "History" (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        title JSONB NOT NULL,
-        description TEXT,
-        full_story JSONB NOT NULL,
-        language_level TEXT CHECK (language_level IN ('A1','A2','B1','B2','C1','C2')),
-        image_url TEXT,
-        audio_url TEXT,
-        word_timing JSONB,
-        words JSONB,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW(),
-        author_name TEXT,
-        author_role TEXT,
-        views_count INT DEFAULT 0,
-        likes_count INT DEFAULT 0
-      );
+   CREATE TABLE IF NOT EXISTS "History" (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title JSONB NOT NULL,
+  description TEXT,
+  full_story JSONB NOT NULL,
+  language_level TEXT CHECK (language_level IN ('A1','A2','B1','B2','C1','C2')),
+  image_url TEXT,
+  audio_url TEXT,
+  word_timing JSONB,
+  words JSONB,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  author_name TEXT,
+  author_role TEXT,
+  views_count INT DEFAULT 0
+);
     `);
     console.log('✅ History table is ready');
 

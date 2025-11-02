@@ -5,8 +5,9 @@ import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { History, StoryTiming, Word, WordTiming } from '../types/hystory';
 import { splitGermanText } from '../utils/splitGermanText';
-import { saveHistoryToDB } from '../db/historyDB';
+
 import { downloadAndStoreImage, getLocalMediaPath, saveBuffer } from '../utils/mediaStorage';
+import { insertHistory } from '../db/historyDB';
 
 dotenv.config();
 
@@ -233,7 +234,7 @@ ${words.join(', ')}
 
   // --- 🔹 9️⃣ Сохраняем историю
 
-  await saveHistoryToDB(parsedStory);
+  await insertHistory(parsedStory);
 
   console.log('✅ История успешно сохранена:', parsedStory.title.de);
   return parsedStory;

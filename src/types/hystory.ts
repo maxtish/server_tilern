@@ -16,8 +16,8 @@ export interface History {
   authorName: string;
   authorRole: string;
   viewsCount: number;
-  likesCount: number;
-  // 🔹 Новое поле
+  // 🔹 Убираем likesCount из базы, оставляем только для фронтенда
+  likesCount?: number;
   likedByCurrentUser?: boolean; // флаг для фронтенда, чтобы подсветить лайк
 }
 
@@ -63,7 +63,6 @@ export interface DBHistory {
   author_name: string;
   author_role: string;
   views_count: number;
-  likes_count: number;
 }
 
 // --- Фронтенд -> База данных ---
@@ -82,7 +81,6 @@ export const mapHistoryToDB = (history: History): DBHistory => ({
   author_name: history.authorName,
   author_role: history.authorRole,
   views_count: history.viewsCount ?? 0,
-  likes_count: history.likesCount ?? 0,
 });
 
 // --- База данных -> Фронтенд ---
@@ -101,7 +99,6 @@ export const mapDBToHistory = (dbHistory: DBHistory): History => ({
   authorName: dbHistory.author_name,
   authorRole: dbHistory.author_role,
   viewsCount: dbHistory.views_count,
-  likesCount: dbHistory.likes_count,
 });
 
 /*
