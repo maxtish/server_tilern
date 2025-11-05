@@ -4,6 +4,7 @@ import {
   getUserWordsController,
   saveUserWordController,
 } from '../controllers/userWordController';
+import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
@@ -14,6 +15,6 @@ router.post('/user/word', saveUserWordController);
 router.get('/user/words/:userId', getUserWordsController);
 
 // ❌ Удалить сохранённое слово
-router.delete('/user/word', deleteUserWordController);
+router.delete('/user-words/:id', authenticate, deleteUserWordController);
 
 export default router;

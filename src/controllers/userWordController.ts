@@ -48,12 +48,18 @@ export const getUserWordsController = async (req: Request, res: Response) => {
 // ❌ Удалить слово
 export const deleteUserWordController = async (req: Request, res: Response) => {
   try {
-    const { userId, word } = req.body;
-    if (!userId || !word) {
-      return res.status(400).json({ success: false, error: 'userId и word обязательны' });
+    if (!req.user?.id) {
+      return res.status(401).json({ success: false, error: 'Неавторизован' });
     }
 
-    const deleted = await deleteUserWord(userId, word);
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ success: false, error: 'id обязателен' });
+    }
+
+    const deleted = await deleteUserWord(userId, id);
     res.status(200).json({ success: deleted });
   } catch (err) {
     console.error('🚨 Error deleting user word:', err);

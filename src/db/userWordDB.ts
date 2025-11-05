@@ -64,20 +64,18 @@ export const getUserWordsByUser = async (userId: string): Promise<UserWord[]> =>
 };
 
 // --- Удалить слово пользователя
-export const deleteUserWord = async (userId: string, word: string): Promise<boolean> => {
+
+export const deleteUserWord = async (userId: string, wordId: string): Promise<boolean> => {
   const client = await pool.connect();
   try {
     const result = await client.query(
       `
       DELETE FROM "UserWords"
-      WHERE user_id = $1 AND (word->>'word') = $2;
-    `,
-      [userId, word]
+      WHERE id = $1 AND user_id = $2;
+      `,
+      [wordId, userId]
     );
     return (result.rowCount ?? 0) > 0;
-  } catch (err) {
-    console.error('🚨 Error deleting user word:', err);
-    throw err;
   } finally {
     client.release();
   }

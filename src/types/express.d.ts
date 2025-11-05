@@ -18,3 +18,12 @@ declare module 'express-serve-static-core' {
     user?: AuthUser;
   }
 }
+declare namespace Express {
+  export interface Request {
+    user?: {
+      id: string;
+      email?: string;
+      role?: string;
+    };
+  }
+}
