@@ -12,6 +12,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - shared_network   # <-- добавлено
 
   app:
     build: .
@@ -24,6 +26,12 @@ services:
     depends_on:
       - db
     command: npm run dev
+    networks:
+      - shared_network
+
+networks:
+  shared_network:
+    external: true
 
 volumes:
   postgres_data:

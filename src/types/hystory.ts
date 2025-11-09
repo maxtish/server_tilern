@@ -27,6 +27,12 @@ export interface WordTiming {
   end: number; // время конца в секундах
 }
 
+export interface TranscribeResponse {
+  language: string;
+  duration: number;
+  words: WordTiming[];
+}
+
 // Тип слова
 /////// Общий интерфейс для слова
 

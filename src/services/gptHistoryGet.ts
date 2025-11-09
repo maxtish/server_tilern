@@ -9,6 +9,7 @@ import { splitGermanText } from '../utils/splitGermanText';
 import { downloadAndStoreImage, getLocalMediaPath, saveBuffer } from '../utils/mediaStorage';
 import { insertHistory } from '../db/historyDB';
 import { sentenceToSkeleton } from '../utils/sentenceToSkeleton';
+import { transcribeMp3 } from './audio/transcribeTilern';
 
 dotenv.config();
 
@@ -217,57 +218,14 @@ export const historyGetGPT = async (initialHistory: string): Promise<History> =>
   parsedStory.audioUrl = audioUrl;
 
   // -------------------------------
-  // 2️⃣ Распознаем аудио через Whisper для таймингов
+  // 2️⃣ Распознаем аудио для таймингов через  Микросервис - Transcribe Tilern 
   // -------------------------------
+const localPath = getLocalMediaPath(parsedStory.id, 'mp3');
+const transcribeJson = await transcribeMp3(localPath)
 
-  console.log('Распознаем аудио через Whisper для таймингов');
+parsedStory.wordTiming = transcribeJson.words;
 
-  const audioPath = getLocalMediaPath(parsedStory.id, 'mp3');
-  const transcription = await openai.audio.transcriptions.create({
-    file: fs.createReadStream(audioPath),
-    model: 'whisper-1',
-    response_format: 'verbose_json', // чтобы получить сегменты с таймингами
-    temperature: 0.2,
-    language: 'de',
-    prompt: 'необходимо точное время произношения слов.',
-  });
 
-  // -------------------------------
-  // 3️⃣ Формируем wordTiming[]
-  // -------------------------------
-  const wordTiming: WordTiming[] = [];
-
-  if (transcription.segments && transcription.segments.length > 0) {
-    transcription.segments.forEach((segment: any) => {
-      const words = segment.text.trim().split(/\s+/);
-      const duration = segment.end - segment.start;
-      const wordDuration = duration / words.length;
-
-      words.forEach((word: string, idx: number) => {
-        wordTiming.push({
-          word,
-          start: segment.start + idx * wordDuration,
-          end: segment.start + (idx + 1) * wordDuration,
-        });
-      });
-    });
-  }
-
-  // -------------------------------
-  // 4️⃣ Сохраняем тайминги в JSON
-  // -------------------------------
-  const storyTiming: StoryTiming = {
-    text: textToSpeak, // ✅ теперь определено
-    wordTiming,
-  };
-
-  const timingFilename = `${parsedStory.id}-timing.json`;
-  const timingPath = path.join(AUDIO_DIR, timingFilename);
-  fs.writeFileSync(timingPath, JSON.stringify(storyTiming, null, 2));
-
-  parsedStory.wordTiming = wordTiming;
-
-  /////////////////////////////////////////////////////////////////////////////////
 
   // --- 🔹 9️⃣ Сохраняем историю
 

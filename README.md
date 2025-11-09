@@ -31,6 +31,15 @@ docker system prune -a --volumes
 docker-compose up -d --build
 ```
 
+
+Создай общую сеть
+```powershell
+docker network create shared_network
+```
+
+
+
+
 ## Структура мобильного приложения
 
 mobile/
