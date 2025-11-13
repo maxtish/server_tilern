@@ -8,8 +8,9 @@ import { splitGermanText } from '../utils/splitGermanText';
 
 import { downloadAndStoreImage, getLocalMediaPath, saveBuffer } from '../utils/mediaStorage';
 import { insertHistory } from '../db/historyDB';
-import { sentenceToSkeleton } from '../utils/sentenceToSkeleton';
+
 import { transcribeMp3 } from './audio/transcribeTilern';
+import { transformWordTiming } from '../utils/transformWordTiming';
 
 dotenv.config();
 
@@ -117,60 +118,6 @@ export const historyGetGPT = async (initialHistory: string): Promise<History> =>
   parsedStory.authorName = 'AI Story Generator';
   parsedStory.authorRole = 'ADMIN';
 
-  // --- 🔹 5️⃣ Разбиваем текст на слова
-  console.log('Разбиваем текст на слова ---');
-  const words: Word[] = sentenceToSkeleton(parsedStory.fullStory.de);
-  console.log('ВОТ МАССИВ СЛОВ', JSON.stringify(words, null, 2));
-  // --- 🔹 6️⃣ Формируем промпт для анализа слов
-  const prompt = `
-У меня есть массив немецких слов в формате:
-Пожалуйста, заполни поля:  
-- type — часть речи на немецком (например, Artikel, Substantiv, Verb, Adjektiv, Pronomen, Präposition)  
-- singular — форма в единственном числе. Указывай с артиклем. Если слово не имеет формы единственного числа, оставь пустым ("").
-- plural — форма во множественном числе. Указывай с артиклем. Если слово не имеет формы множественного числа, оставь пустым ("").
-- translation — перевод на русский язык  
-- Если встречаются числа, знаки процентов или величины (например, °C, km, %), заменяй их на текстовое значение (например: "Grad Celsius", "Prozent", "Kilometer").
-Выведи результат в том же формате массива JSON.
-Пример ожидаемого результата:
-[
-  { type: "Artikel", word: "Die", plural: "", singular: "", translation: "определённый артикль женского рода" },
-  { type: "Substantiv", word: "Traum", plural: "die Träume", singular: "der Traum", translation: "сон" },
-  { type: "Verb", word: "haben", plural: "", singular: "", translation: "иметь" } 
-]
-
-ВОТ МАССИВ СЛОВ:  ${JSON.stringify(words, null, 2)} 
-**Важно:**
-1. Заполняй все поля для каждого слова. Ни одно поле не должно быть пропущено.
-2. Если слово не подходит для некоторого поля, используй пустую строку "".
-3. Ответ должен быть **только JSON**, без текста, объяснений или примечаний.
-Ответ **только** в JSON, без пояснений и текста вокруг.
-`;
-
-  console.log('Запрос к ChatGPT для анализа слов---');
-
-  // --- 🔹 7️⃣ Запрос к ChatGPT для анализа слов
-  const completionWords = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.1,
-  });
-
-  const contentB = completionWords.choices[0]?.message?.content?.trim();
-  if (!contentB) throw new Error('Пустой ответ от OpenAI при анализе слов');
-
-  try {
-    // Ищем JSON-массив в ответе
-    const jsonMatch = contentB.match(/\[.*\]/s);
-    if (!jsonMatch) throw new Error('Не удалось найти JSON в ответе GPT (analyze words)');
-
-    const parsedWords: Word[] = JSON.parse(jsonMatch[0]);
-    parsedStory.words = parsedWords; // <---- вот ключевая строка!
-  } catch (err) {
-    console.error('❌ Ошибка парсинга JSON для слов:', err);
-    console.error('Ответ GPT:', contentB);
-    parsedStory.words = [];
-  }
-
   // --- 🔹 8️⃣ Генерация изображения
   console.log('Генерация изображения');
   const imageResponse = await openai.images.generate({
@@ -218,15 +165,78 @@ export const historyGetGPT = async (initialHistory: string): Promise<History> =>
   parsedStory.audioUrl = audioUrl;
 
   // -------------------------------
-  // 2️⃣ Распознаем аудио для таймингов через  Микросервис - Transcribe Tilern 
+  // 2️⃣ Распознаем аудио для таймингов через  Микросервис - Transcribe Tilern
   // -------------------------------
-const localPath = getLocalMediaPath(parsedStory.id, 'mp3');
-const transcribeJson = await transcribeMp3(localPath)
+  const localPath = getLocalMediaPath(parsedStory.id, 'mp3');
+  const transcribeJson = await transcribeMp3(localPath);
+  parsedStory.wordTiming = transcribeJson.words;
 
-parsedStory.wordTiming = transcribeJson.words;
+  ////////////////////////////////////////////
 
+  // --- 🔹 5️⃣ Разбиваем текст на слова
+  console.log('Разбиваем текст на слова ---');
+  const words: Word[] = transformWordTiming(parsedStory.wordTiming);
+  console.log('ВОТ МАССИВ СЛОВ', JSON.stringify(words, null, 2));
+  // --- 🔹 6️⃣ Формируем промпт для анализа слов
+  const prompt = `
+У меня есть массив немецких слов в формате:
+Пожалуйста, заполни поля для каждого слова:
+- **type** — часть речи на немецком (например: Artikel, Substantiv, Verb, Adjektiv, Pronomen, Präposition, Numeral и т.д.)
+- **baseForm** — форма в единственном числе, или полная расшифровка сокращения/текста, указанного в поле word.
+  • Для существительных — укажи с артиклем (например, "der Hund").  
+  • Для числительных (Numeral) — запиши число **прописью по-немецки** (например, "dreihunderttausend" для 300.000, или "dreißig Grad Celsius" для 30°C, "zehn Prozent" для 10%).
+  • Для аббревиатур и единиц измерения — запиши полную расшифровку (например, "Kilowattstunde" для kWh).
+  • Для слов, где нет “базовой формы” (глаголы, предлоги, частицы, междометия): оставляем исходное значение из поля word
+- **plural** — форма во множественном числе.  
+  • Для существительных — укажи с артиклем (например, "die Hunde").  
+  • Если слово не имеет формы единственного числа (например, глаголы, предлоги, частицы, междометия), оставь пустую строку "".
+- **translation** — перевод или значение на русский язык в контексте истории ---(${initialHistory})---.
 
+Выведи результат в том же формате массива JSON.
+Пример ожидаемого результата:
+[
+  { type: "Artikel", word: "Die", plural: "", baseForm: "", translation: "определённый артикль женского рода" },
+  { type: "Substantiv", word: "Traum", plural: "die Träume", baseForm: "der Traum", translation: "сон" },
+  { type: "Verb", word: "haben", plural: "", baseForm: "", translation: "иметь" } 
+  { type: "Numeral", word: "500.000", plural: "", baseForm: "fünfhunderttausend", translation: "пятьсот тысяч" }
+  { type: "Numeral", word: "30°C", plural: "", baseForm: "dreißig Grad Celsius", translation: "тридцать градусов Цельсия" }
+]
 
+ВОТ МАССИВ СЛОВ:  ${JSON.stringify(words, null, 2)} 
+**Важно:**
+1. Заполняй все поля для каждого слова. Ни одно поле не должно быть пропущено.
+2. Если слово не подходит для некоторого поля, используй пустую строку "".
+3. Ответ должен быть **только JSON**, без текста, объяснений или примечаний.
+4. **Поля word НЕ ИЗМЕНЯТЬ!**.
+Ответ **только** в JSON, без пояснений и текста вокруг.
+`;
+
+  console.log('Запрос к ChatGPT для анализа слов---');
+
+  // --- 🔹 7️⃣ Запрос к ChatGPT для анализа слов
+  const completionWords = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.1,
+  });
+
+  const contentB = completionWords.choices[0]?.message?.content?.trim();
+  if (!contentB) throw new Error('Пустой ответ от OpenAI при анализе слов');
+
+  try {
+    // Ищем JSON-массив в ответе
+    const jsonMatch = contentB.match(/\[.*\]/s);
+    if (!jsonMatch) throw new Error('Не удалось найти JSON в ответе GPT (analyze words)');
+
+    const parsedWords: Word[] = JSON.parse(jsonMatch[0]);
+    parsedStory.words = parsedWords; // <---- вот ключевая строка!
+  } catch (err) {
+    console.error('❌ Ошибка парсинга JSON для слов:', err);
+    console.error('Ответ GPT:', contentB);
+    parsedStory.words = [];
+  }
+
+  ////////////////////////////////////////////////
   // --- 🔹 9️⃣ Сохраняем историю
 
   await insertHistory(parsedStory);

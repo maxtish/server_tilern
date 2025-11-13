@@ -40,7 +40,7 @@ export type Word = {
   type: string;
   word: string;
   plural: string;
-  singular: string;
+  baseForm: string;
   translation: string;
 };
 
