@@ -122,4 +122,28 @@ export const initDB = async () => {
   } finally {
     client.release();
   }
+
+  // --- Создание дополнительных админов
+  const adminsToCreate = [
+    { email: 'marina', password: 'marina', name: 'Marina' },
+    { email: 'wowa', password: 'wowa', name: 'Wowa' },
+    { email: 'max', password: 'max', name: 'Max' },
+  ];
+
+  for (const admin of adminsToCreate) {
+    const existing = await client.query('SELECT * FROM "User" WHERE email=$1', [admin.email]);
+
+    if (existing.rows.length === 0) {
+      const hashedPassword = await bcrypt.hash(admin.password, 10);
+      await client.query('INSERT INTO "User"(email, password_hash, name, role) VALUES($1,$2,$3,$4)', [
+        admin.email,
+        hashedPassword,
+        admin.name,
+        'ADMIN',
+      ]);
+      console.log(`✅ Admin user created: ${admin.email} / ${admin.password}`);
+    } else {
+      console.log(`ℹ️ Admin user already exists: ${admin.email}`);
+    }
+  }
 };
