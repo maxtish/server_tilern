@@ -9,26 +9,42 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: stories_db
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - shared_network   # <-- добавлено
+      - shared_network
 
   app:
     build: .
     container_name: node_app
     restart: always
     ports:
-      - "3000:3000"
+      - '3000:3000'
+    env_file: .env
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/stories_db
     depends_on:
       - db
+      - ngrok
     command: npm run dev
     networks:
       - shared_network
 
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: ngrok
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    command: >
+      http node_app:3000 --domain=${NGROK_DOMAIN}
+
+    ports:
+      - '4040:4040'
+    networks:
+      - shared_network
 networks:
   shared_network:
     external: true
