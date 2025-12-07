@@ -71,3 +71,17 @@ export function getLocalMediaPath(id: string, ext: string): string {
   console.log('🖥 Локальный путь к файлу:', localPath);
   return localPath;
 }
+
+/**
+ * Удаляет файл, если он существует
+ */
+export function deleteFileIfExists(id: string, ext: string): void {
+  const filePath = getLocalMediaPath(id, ext);
+
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+    console.log(`🗑 Файл удалён: ${filePath}`);
+  } else {
+    console.log(`⚠️ Файл не найден: ${filePath}`);
+  }
+}
