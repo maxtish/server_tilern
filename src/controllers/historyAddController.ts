@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { historyGetGPT } from '../services/gptHistoryGet';
+import { buildHistory } from '../services/history/buildHistory';
 
 // POST — получаем историю из формы и запускаем GPT
 export const submitHistory = async (req: Request, res: Response, next: NextFunction) => {
@@ -11,7 +11,7 @@ export const submitHistory = async (req: Request, res: Response, next: NextFunct
     }
 
     // Передаем введённый текст в historyGetGPT
-    const generatedStory = await historyGetGPT(story);
+    const generatedStory = await buildHistory(story);
 
     res.json({ generatedStory });
   } catch (err) {

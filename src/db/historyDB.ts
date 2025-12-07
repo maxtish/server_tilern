@@ -8,7 +8,7 @@ export const insertHistory = async (history: History): Promise<History> => {
     const query = `
       INSERT INTO "History" (
         id, title, description, full_story, language_level,
-        image_url, audio_url, word_timing, words,
+        image_url, audio_url, token_timing, words,
         created_at, updated_at, author_name, author_role,
         views_count
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
@@ -22,7 +22,7 @@ export const insertHistory = async (history: History): Promise<History> => {
       dbStory.language_level,
       dbStory.image_url,
       dbStory.audio_url,
-      JSON.stringify(dbStory.word_timing), // <-- СЕРИАЛИЗАЦИЯ
+      JSON.stringify(dbStory.token_timing), // <-- СЕРИАЛИЗАЦИЯ
       JSON.stringify(dbStory.words), // <-- СЕРИАЛИЗАЦИЯ
       dbStory.created_at,
       dbStory.updated_at,

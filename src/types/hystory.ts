@@ -9,7 +9,7 @@ export interface History {
   languageLevel: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
   imageUrl: string;
   audioUrl: string;
-  wordTiming: WordTiming[];
+  tokenTiming: TokenTiming[];
   words: Word[];
   createdDate: string; // timestamp в формате ISO
   updatedDate: string; // timestamp в формате ISO
@@ -21,16 +21,16 @@ export interface History {
   likedByCurrentUser?: boolean; // флаг для фронтенда, чтобы подсветить лайк
 }
 
-export interface WordTiming {
-  word: string; // слово на немецком
-  start: number; // время начала в секундах
-  end: number; // время конца в секундах
+export interface TokenTiming {
+  word: string;
+  start: number | null;
+  end: number | null;
 }
 
 export interface TranscribeResponse {
   language: string;
   duration: number;
-  words: WordTiming[];
+  words: TokenTiming[];
 }
 
 // Тип слова
@@ -45,8 +45,18 @@ export type Word = {
 };
 
 export interface StoryTiming {
-  text: string;
-  wordTiming: WordTiming[];
+  tokenTiming: TokenTiming[];
+}
+
+///// ДЛЯ generateStory
+export interface ProcessStoryWithGPT {
+  title: { de: string; ru: string };
+  description: string;
+  fullStory: {
+    ru: string;
+    de: string;
+  };
+  languageLevel: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 }
 
 // --- Интерфейс для базы данных ---
@@ -58,7 +68,7 @@ export interface DBHistory {
   language_level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
   image_url: string;
   audio_url: string;
-  word_timing: WordTiming[];
+  token_timing: TokenTiming[];
   words: Word[];
   created_at: string; // timestamp в формате ISO
   updated_at: string; // timestamp в формате ISO
@@ -76,7 +86,7 @@ export const mapHistoryToDB = (history: History): DBHistory => ({
   language_level: history.languageLevel,
   image_url: history.imageUrl,
   audio_url: history.audioUrl,
-  word_timing: history.wordTiming,
+  token_timing: history.tokenTiming,
   words: history.words,
   created_at: history.createdDate || new Date().toISOString(),
   updated_at: history.updatedDate || new Date().toISOString(),
@@ -94,7 +104,7 @@ export const mapDBToHistory = (dbHistory: DBHistory): History => ({
   languageLevel: dbHistory.language_level,
   imageUrl: dbHistory.image_url,
   audioUrl: dbHistory.audio_url,
-  wordTiming: dbHistory.word_timing,
+  tokenTiming: dbHistory.token_timing,
   words: dbHistory.words,
   createdDate: dbHistory.created_at,
   updatedDate: dbHistory.updated_at,

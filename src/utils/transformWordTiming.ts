@@ -1,9 +1,31 @@
-import { Word, WordTiming } from '../types/hystory';
+import { Word, TokenTiming } from '../types/hystory';
+import { splitGermanTextSimple } from './splitGermanText';
 
-export function transformWordTiming(wordTiming: WordTiming[]): Word[] {
-  return wordTiming.map(({ word }) => ({
+function normalizeGermanWord(word: string): string {
+  return (
+    word
+      // убираем пунктуацию только в конце слова
+      .replace(/[.,!?;:()„“"«»]+$/g, '')
+
+      .trim()
+  );
+}
+
+export function transformWordTiming(tokenTiming: TokenTiming[]): Word[] {
+  return tokenTiming.map(({ word }) => ({
     type: '',
-    word,
+    word: normalizeGermanWord(word),
+    plural: '',
+    baseForm: '',
+    translation: '',
+  }));
+}
+
+export function transformWord(text: string): Word[] {
+  const tokenTiming: string[] = splitGermanTextSimple(text);
+  return tokenTiming.map((word) => ({
+    type: '',
+    word: word,
     plural: '',
     baseForm: '',
     translation: '',

@@ -1,8 +1,7 @@
-import fs from "fs";
-import axios from "axios";
-import FormData from "form-data";
+import fs from 'fs';
+import axios from 'axios';
+import FormData from 'form-data';
 import { TranscribeResponse } from '../../types/hystory';
-
 
 /**
  * Отправляет mp3 файл на FastAPI сервер и возвращает JSON с результатом.
@@ -16,17 +15,18 @@ export async function transcribeMp3(filePath: string): Promise<TranscribeRespons
 
   // Создаём form-data
   const formData = new FormData();
-  formData.append("file", fs.createReadStream(filePath));
+  formData.append('file', fs.createReadStream(filePath));
 
   try {
-    const response = await axios.post("http://transcribe_tilern:8000/transcribe", formData, {
+    const response = await axios.post('http://transcribe_tilern:8000/transcribe', formData, {
       headers: formData.getHeaders(),
     });
 
     // Возвращаем JSON
     return response.data as TranscribeResponse;
   } catch (err: any) {
-    console.error("Failed to transcribe:", err.message);
+    console.error('Failed to transcribe:', err.message);
+    console.log('Failed to transcribe:', err.message);
     throw err;
   }
 }

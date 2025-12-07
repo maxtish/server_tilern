@@ -48,7 +48,7 @@ export const initDB = async () => {
   language_level TEXT CHECK (language_level IN ('A1','A2','B1','B2','C1','C2')),
   image_url TEXT,
   audio_url TEXT,
-  word_timing JSONB,
+  token_timing JSONB,
   words JSONB,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
