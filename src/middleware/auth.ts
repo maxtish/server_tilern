@@ -1,53 +1,43 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken } from '../utils/jwt';
-import { UserRole } from '../types/express';
-
-// Определяем допустимые роли
-
-interface JwtPayload {
-  id: string;
-  role: UserRole;
-  email?: string;
-  name?: string;
-}
-
-// Расширяем Request, чтобы добавить поле user
-declare module 'express-serve-static-core' {
-  interface Request {
-    user?: JwtPayload;
-  }
-}
+import { verifyAccessToken } from '../utils/jwt';
+import { UserRole, AuthUser } from '../types/express';
 
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ error: 'No token provided' });
+  if (!authHeader) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
 
-  const token = authHeader.split(' ')[1]; // Bearer <token>
+  const [type, token] = authHeader.split(' ');
+
+  if (type !== 'Bearer' || !token) {
+    return res.status(401).json({ error: 'Invalid authorization format' });
+  }
 
   try {
-    const payload = verifyToken(token) as JwtPayload;
+    const payload = verifyAccessToken(token) as AuthUser;
 
-    // Проверяем корректность роли
     const validRoles: UserRole[] = ['USER', 'PREMIUM', 'EDITOR', 'ADMIN'];
     if (!validRoles.includes(payload.role)) {
       return res.status(401).json({ error: 'Invalid role in token' });
     }
 
-    req.user = payload; // безопасно
+    req.user = payload; // теперь строго AuthUser
     next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' });
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
 
 // Middleware для ролей
 export const authorize = (...roles: UserRole[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    const user = req.user;
-    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
-    if (!roles.includes(user.role)) {
-      return res.status(403).json({ error: 'Forbidden: insufficient rights' });
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Forbidden' });
     }
 
     next();

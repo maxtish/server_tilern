@@ -38,6 +38,19 @@ export const initDB = async () => {
     `);
     console.log('✅ Users table is ready');
 
+    await client.query(`
+  CREATE TABLE IF NOT EXISTS "RefreshToken" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES "User"(id) ON DELETE CASCADE,
+    token TEXT UNIQUE NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    revoked BOOLEAN DEFAULT false,
+    device_info TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+`);
+    console.log('✅ RefreshToken table is ready');
+
     // --- Таблица историй
     await client.query(`
    CREATE TABLE IF NOT EXISTS "History" (
