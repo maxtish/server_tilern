@@ -11,14 +11,22 @@ export interface History {
   audioUrl: string;
   tokenTiming: TokenTiming[];
   words: Word[];
-  createdDate: string; // timestamp в формате ISO
-  updatedDate: string; // timestamp в формате ISO
+  sentences: SentenceGrammar[];
+  createdDate: string;
+  updatedDate: string;
   authorName: string;
   authorRole: string;
   viewsCount: number;
   // 🔹 Убираем likesCount из базы, оставляем только для фронтенда
   likesCount?: number;
   likedByCurrentUser?: boolean; // флаг для фронтенда, чтобы подсветить лайк
+}
+
+//////////
+export interface SentenceGrammar {
+  de: string; // Предложение на немецком
+  ru: string; // Перевод предложения
+  grammar: string; // Описание грамматических конструкций (например, "Perfekt + Trennbare Verben")
 }
 
 export interface TokenTiming {
@@ -70,6 +78,7 @@ export interface DBHistory {
   audio_url: string;
   token_timing: TokenTiming[];
   words: Word[];
+  sentences: SentenceGrammar[];
   created_at: string; // timestamp в формате ISO
   updated_at: string; // timestamp в формате ISO
   author_name: string;
@@ -88,6 +97,7 @@ export const mapHistoryToDB = (history: History): DBHistory => ({
   audio_url: history.audioUrl,
   token_timing: history.tokenTiming,
   words: history.words,
+  sentences: history.sentences,
   created_at: history.createdDate || new Date().toISOString(),
   updated_at: history.updatedDate || new Date().toISOString(),
   author_name: history.authorName,
@@ -106,6 +116,7 @@ export const mapDBToHistory = (dbHistory: DBHistory): History => ({
   audioUrl: dbHistory.audio_url,
   tokenTiming: dbHistory.token_timing,
   words: dbHistory.words,
+  sentences: dbHistory.sentences,
   createdDate: dbHistory.created_at,
   updatedDate: dbHistory.updated_at,
   authorName: dbHistory.author_name,

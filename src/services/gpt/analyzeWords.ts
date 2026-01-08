@@ -17,7 +17,7 @@ export const analyzeWords = async (initialHistory: string, tokenTiming: TokenTim
 
   // 1. РАЗБИВКА НА ЧАСТИ (Chunking)
   // Для gpt-4o-mini оптимально 15-20 слов за раз, чтобы не терять точность
-  const CHUNK_SIZE = 15;
+  const CHUNK_SIZE = 30;
   const wordChunks: Word[][] = [];
 
   for (let i = 0; i < allWords.length; i += CHUNK_SIZE) {

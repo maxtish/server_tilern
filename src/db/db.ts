@@ -63,6 +63,7 @@ export const initDB = async () => {
   audio_url TEXT,
   token_timing JSONB,
   words JSONB,
+  sentences JSONB,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
   author_name TEXT,
