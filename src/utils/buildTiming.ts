@@ -63,5 +63,44 @@ export function buildTiming(indexW: Word[], indexT: TokenTiming[]) {
     }
   }
 
+  //// проверка и коррекция таймингов
+  const DEFAULT_DURATION = 3;
+
+  for (let j = 0; j < indexR.length; j++) {
+    const item = indexR[j];
+
+    if (item && item.start != null && item.end != null) {
+      const duration = Math.abs(item.end - item.start);
+      ///где проверить start или end?
+      if (item.end < item.start) {
+        /// в end
+        if (duration > DEFAULT_DURATION) {
+          const itemT = indexT[j];
+          const durationT = itemT && itemT.start != null && itemT.end != null ? Math.abs(itemT.end - itemT.start) : 99;
+          if (durationT < duration) {
+            indexR[j].end = itemT.end;
+            console.log(`Слово "${item?.word}" скорректировано по таймингу транскрипции`);
+          }
+        } else {
+          // Всё в норме, коррекция не нужна
+        }
+      } else {
+        /// в start
+        if (duration > DEFAULT_DURATION) {
+          const itemT = indexT[j];
+          const durationT = itemT && itemT.start != null && itemT.end != null ? Math.abs(itemT.end - itemT.start) : 99;
+          if (durationT < duration) {
+            indexR[j].start = itemT.start;
+            console.log(`Слово "${item?.word}" скорректировано по таймингу транскрипции`);
+          }
+        } else {
+          // Всё в норме, коррекция не нужна
+        }
+      }
+    } else {
+      console.log(`Слово "${item?.word}" ещё не имеет времени окончания`);
+    }
+  }
+
   return indexR;
 }
