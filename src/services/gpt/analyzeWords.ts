@@ -64,19 +64,44 @@ Du bist ein Linguistik-Expert für Deutsch. Анализируй массив н
 2. Возвращай строго JSON-объект с ключом "results".
 `;
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini', // или 'gpt-4o' для еще более высокой точности
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Обработай эти слова и верни JSON: ${JSON.stringify(chunk)}` },
-    ],
-    temperature: 0, // Минимум креатива — максимум точности
-    response_format: { type: 'json_object' }, // Гарантирует валидный JSON
-  });
+  const callAI = async (): Promise<Word[]> => {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Обработай эти слова и верни JSON: ${JSON.stringify(chunk)}` },
+      ],
+      temperature: 0,
+      response_format: { type: 'json_object' },
+    });
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) return chunk;
+    const content = response.choices[0]?.message?.content;
+    if (!content) return chunk;
 
-  const parsed = JSON.parse(content);
-  return parsed.results || parsed; // Берем массив из ключа results
+    try {
+      const parsed = JSON.parse(content);
+      if (!Array.isArray(parsed.results)) throw new Error('Нет ключа results или это не массив');
+      return parsed.results;
+    } catch (err) {
+      console.warn('Не удалось распарсить JSON от AI:', err);
+      return chunk; // возвращаем исходный чанк
+    }
+  };
+
+  // Первый вызов AI
+  let analyzed = await callAI();
+
+  // Проверка длины
+  if (analyzed.length !== chunk.length) {
+    console.warn('Длина массива после AI не совпадает с чанком, повторяем запрос...');
+    analyzed = await callAI();
+
+    if (analyzed.length !== chunk.length) {
+      throw new Error(
+        `AI вернул массив другой длины после двух попыток. Чанк длиной ${chunk.length}, а результат длиной ${analyzed.length}`,
+      );
+    }
+  }
+
+  return analyzed;
 }
