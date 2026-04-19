@@ -11,10 +11,23 @@ import { linkTokenTimingToText } from '../gpt/linkTokenTimingToText';
 import { removeLineBreaks } from '../../utils/splitGermanText';
 import { analyzeGrammar } from '../gpt/analyzeGrammar';
 
-export const buildHistory = async (initialHistory: string): Promise<History> => {
+interface UserContext {
+  id: string;
+  name: string;
+  role: string;
+}
+
+export const buildHistory = async (
+  initialHistory: string,
+  user: UserContext, // 🆕 Принимаем данные юзера
+): Promise<History> => {
   const fixedInitialHistory = removeLineBreaks(initialHistory);
+  const isPublic = user.role === 'ADMIN';
+
   const parsedStory: History = {
     title: { de: '', ru: '' },
+    authorId: user.id,
+    isPublic: isPublic,
     description: '',
     fullStory: { de: fixedInitialHistory, ru: '' },
     languageLevel: 'A1',

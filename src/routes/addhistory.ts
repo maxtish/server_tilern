@@ -4,7 +4,7 @@ import { submitHistory } from '../controllers/historyAddController';
 
 const router = Router();
 
-// POST /history — только для админа
-router.post('/history', authenticate, authorize('ADMIN'), submitHistory);
+// Теперь доступ есть у всех авторизованных пользователей
+router.post('/history', authenticate, submitHistory);
 
 export default router;

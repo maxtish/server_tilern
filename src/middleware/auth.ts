@@ -43,3 +43,34 @@ export const authorize = (...roles: UserRole[]) => {
     next();
   };
 };
+
+export const authenticateOptional = (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+
+  // Если заголовка нет, просто идем дальше (req.user останется undefined)
+  if (!authHeader) {
+    return next();
+  }
+
+  const [type, token] = authHeader.split(' ');
+
+  // Если формат неверный или токена нет — тоже просто идем дальше
+  if (type !== 'Bearer' || !token) {
+    return next();
+  }
+
+  try {
+    const payload = verifyAccessToken(token) as AuthUser;
+
+    const validRoles: UserRole[] = ['USER', 'PREMIUM', 'EDITOR', 'ADMIN'];
+    if (validRoles.includes(payload.role)) {
+      req.user = payload; // Если токен валиден, записываем юзера
+    }
+
+    next();
+  } catch {
+    // Если токен протух или "кривой" — не падаем с ошибкой,
+    // а просто продолжаем как гость
+    next();
+  }
+};

@@ -1,5 +1,6 @@
 import { pool } from './db';
 import { History, mapHistoryToDB, mapDBToHistory, DBHistory } from '../types/hystory';
+
 // --- Вставка новой истории
 export const insertHistory = async (history: History): Promise<History> => {
   const client = await pool.connect();
@@ -7,24 +8,25 @@ export const insertHistory = async (history: History): Promise<History> => {
     const dbStory: DBHistory = mapHistoryToDB(history);
     const query = `
       INSERT INTO "History" (
-        id, title, description, full_story, language_level,
-        image_url, audio_url, token_timing, words, sentences,
-        created_at, updated_at, author_name, author_role,
-        views_count
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+        id, author_id, is_public, title, description, full_story, 
+        language_level, image_url, audio_url, token_timing, words, sentences,
+        created_at, updated_at, author_name, author_role, views_count
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
       RETURNING *;
     `;
     const values = [
       dbStory.id,
+      dbStory.author_id,
+      dbStory.is_public,
       JSON.stringify(dbStory.title),
       dbStory.description,
       JSON.stringify(dbStory.full_story),
       dbStory.language_level,
       dbStory.image_url,
       dbStory.audio_url,
-      JSON.stringify(dbStory.token_timing), // <-- СЕРИАЛИЗАЦИЯ
-      JSON.stringify(dbStory.words), // <-- СЕРИАЛИЗАЦИЯ
-      JSON.stringify(dbStory.sentences), // 🔹 СЕРИАЛИЗАЦИЯ МАССИВА ПРЕДЛОЖЕНИЙ
+      JSON.stringify(dbStory.token_timing),
+      JSON.stringify(dbStory.words),
+      JSON.stringify(dbStory.sentences),
       dbStory.created_at,
       dbStory.updated_at,
       dbStory.author_name,
@@ -48,7 +50,7 @@ export const likeHistory = async (historyId: string, userId: string): Promise<vo
       VALUES ($1, $2)
       ON CONFLICT (history_id, user_id) DO NOTHING
     `,
-      [historyId, userId]
+      [historyId, userId],
     );
   } finally {
     client.release();
@@ -63,18 +65,18 @@ export const unlikeHistory = async (historyId: string, userId: string): Promise<
       `
       DELETE FROM "HistoryLikes" WHERE history_id=$1 AND user_id=$2
     `,
-      [historyId, userId]
+      [historyId, userId],
     );
   } finally {
     client.release();
   }
 };
 
-// --- Получить все истории с количеством лайков и флагом текущего пользователя
+// --- Получить истории (Публичные + Свои) с лайками
 export const getAllHistoriesWithUserLikes = async (
   userId?: string,
   limit: number = 20,
-  offset: number = 0
+  offset: number = 0,
 ): Promise<History[]> => {
   const client = await pool.connect();
   try {
@@ -95,15 +97,16 @@ export const getAllHistoriesWithUserLikes = async (
         FROM "HistoryLikes"
         WHERE user_id = $1
       ) hl ON hl.history_id = h.id
+      WHERE h.is_public = true OR h.author_id = $1 
       ORDER BY h.created_at DESC
-      LIMIT $2 OFFSET $3; -- 🟢 Добавляем пагинацию
+      LIMIT $2 OFFSET $3;
     `,
-      [userId || null, limit, offset]
+      [userId || null, limit, offset],
     );
 
     return res.rows.map((row) => {
       const history = mapDBToHistory(row);
-      history.likesCount = parseInt(row.likes_count); // Важно: COUNT возвращает string в pg
+      history.likesCount = parseInt(row.likes_count);
       history.likedByCurrentUser = row.liked_by_current_user;
       return history;
     });
@@ -131,7 +134,7 @@ export const getLikesCount = async (historyId: string): Promise<number> => {
       `
       SELECT COUNT(*)::int as count FROM "HistoryLikes" WHERE history_id=$1
     `,
-      [historyId]
+      [historyId],
     );
     return res.rows[0]?.count || 0;
   } finally {
@@ -139,6 +142,7 @@ export const getLikesCount = async (historyId: string): Promise<number> => {
   }
 };
 
+// --- Получить конкретную историю (с проверкой доступа)
 export const getHistoryByIdWithUserLikes = async (historyId: string, userId?: string): Promise<History | null> => {
   const client = await pool.connect();
   try {
@@ -159,10 +163,11 @@ export const getHistoryByIdWithUserLikes = async (historyId: string, userId?: st
         FROM "HistoryLikes"
         WHERE user_id = $2
       ) hl ON hl.history_id = h.id
-      WHERE h.id = $1
+      WHERE h.id = $1 
+        AND (h.is_public = true OR h.author_id = $2) 
       LIMIT 1;
       `,
-      [historyId, userId || null]
+      [historyId, userId || null],
     );
 
     if (res.rows.length === 0) return null;

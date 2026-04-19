@@ -1,5 +1,7 @@
 export interface History {
   id: string;
+  authorId: string;
+  isPublic: boolean;
   title: { de: string; ru: string };
   description: string;
   fullStory: {
@@ -70,6 +72,8 @@ export interface ProcessStoryWithGPT {
 // --- Интерфейс для базы данных ---
 export interface DBHistory {
   id: string;
+  author_id: string;
+  is_public: boolean;
   title: { de: string; ru: string };
   description: string;
   full_story: { de: string; ru: string };
@@ -89,6 +93,8 @@ export interface DBHistory {
 // --- Фронтенд -> База данных ---
 export const mapHistoryToDB = (history: History): DBHistory => ({
   id: history.id || '', // будет заполнено при вставке в БД
+  author_id: history.authorId,
+  is_public: history.isPublic,
   title: history.title,
   description: history.description,
   full_story: history.fullStory,
@@ -108,6 +114,8 @@ export const mapHistoryToDB = (history: History): DBHistory => ({
 // --- База данных -> Фронтенд ---
 export const mapDBToHistory = (dbHistory: DBHistory): History => ({
   id: dbHistory.id,
+  authorId: dbHistory.author_id,
+  isPublic: dbHistory.is_public,
   title: dbHistory.title,
   description: dbHistory.description,
   fullStory: dbHistory.full_story,
