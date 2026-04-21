@@ -47,30 +47,43 @@ export const authorize = (...roles: UserRole[]) => {
 export const authenticateOptional = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
-  // Если заголовка нет, просто идем дальше (req.user останется undefined)
+  // 1. Если токена нет совсем — это 100% аноним, просто идем дальше
   if (!authHeader) {
     return next();
   }
 
+  // 2. Если заголовок есть, проверяем его формат
   const [type, token] = authHeader.split(' ');
 
-  // Если формат неверный или токена нет — тоже просто идем дальше
   if (type !== 'Bearer' || !token) {
+    // Если формат кривой (например, "Bearer undefined"),
+    // считаем это отсутствием авторизации и пускаем как гостя
     return next();
   }
 
   try {
+    // 3. Пытаемся верифицировать токен
     const payload = verifyAccessToken(token) as AuthUser;
 
-    const validRoles: UserRole[] = ['USER', 'PREMIUM', 'EDITOR', 'ADMIN'];
-    if (validRoles.includes(payload.role)) {
-      req.user = payload; // Если токен валиден, записываем юзера
+    // Если всё ок — записываем юзера в запрос
+    req.user = payload;
+    next();
+  } catch (err: any) {
+    /** * 4. А вот тут самая важная часть:
+     * Если пользователь ПРИСЛАЛ токен, но он не прошел проверку.
+     */
+
+    // Если токен именно протух по времени
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        error: 'Token expired',
+        message: 'Ваша сессия истекла, обновляем токен...',
+      });
     }
 
-    next();
-  } catch {
-    // Если токен протух или "кривой" — не падаем с ошибкой,
-    // а просто продолжаем как гость
-    next();
+    // Если токен поддельный или поврежден
+    // Можно либо тоже кинуть 401, либо просто пропустить как гостя
+    // Чаще всего лучше кинуть 401, чтобы клиент очистил невалидный стейт
+    return res.status(401).json({ error: 'Invalid token' });
   }
 };
