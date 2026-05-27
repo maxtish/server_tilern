@@ -20,7 +20,7 @@ export async function translateWordWithGPT(
   direction: TranslateDirection,
 ): Promise<TranslateWordOption[]> {
   const sourceLanguage = direction === 'de-ru' ? 'German' : 'Russian';
-  const targetLanguage = direction === 'de-ru' ? 'Russian' : 'German';
+  const targetLanguage = direction === 'ru-de' ? 'Russian' : 'German';
 
   const response = await openai.chat.completions.create({
     model: 'gpt-4.1-mini',
