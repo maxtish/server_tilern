@@ -39,9 +39,9 @@ export async function translateWordWithGPT(
 {
   "options": [
     {
-      "word": "слово на исходном языке",
+      "word": "слово которое было на входе",
       "translation": "перевод слова",
-      "note": "короткое пояснение"
+      "note": "короткое пояснение на русском "
     }
   ]
 }
@@ -56,18 +56,18 @@ export async function translateWordWithGPT(
 - верни 3-5 хороших вариантов
 - варианты должны быть короткими
 - если это существительное на немецком — добавляй артикль der/die/das
-- note всегда пиши на русском
+- note должно содержать короткое пояснение на русском
 - не используй markdown
 - не добавляй текст вне JSON
 
-Пример German -> Russian:
+Пример de-ru German -> Russian:
 
 {
-  "word": "der Tisch",
+  "word": "Tisch",
   "translation": "стол"
 }
 
-Пример Russian -> German:
+Пример ru-de Russian -> German:
 
 {
   "word": "стол",
@@ -77,7 +77,7 @@ export async function translateWordWithGPT(
       },
       {
         role: 'user',
-        content: `Вот слово: "${text}"`,
+        content: `слово которое было на входе: "${text}" . подсказка на какой язык переводить: "${direction}"`,
       },
     ],
   });
