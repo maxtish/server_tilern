@@ -1,12 +1,11 @@
 import { Router } from 'express';
-import { authenticate, authorize } from '../middleware/auth';
-import { submitHistory } from '../controllers/historyAddController';
-import { getHistoryJobStatus } from '../controllers/getHistoryJobStatus';
+import { authenticate } from '../middleware/auth';
+import { submitHistory, getMyHistoryJobs, getHistoryJobStatus } from '../controllers/historyAddController';
 
 const router = Router();
 
-// Теперь доступ есть у всех авторизованных пользователей
 router.post('/history', authenticate, submitHistory);
+router.get('/history/jobs', authenticate, getMyHistoryJobs);
 router.get('/history/jobs/:jobId', authenticate, getHistoryJobStatus);
 
 export default router;

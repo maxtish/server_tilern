@@ -17,17 +17,37 @@ interface UserContext {
   role: string;
 }
 
+type BuildHistoryProgress = {
+  onStepStart?: (step: string) => void;
+  onStepDone?: (step: string, progress: number) => void;
+  onStepError?: (step: string, error: any) => void;
+};
+
 export const buildHistory = async (
   initialHistory: string,
-  user: UserContext, // 🆕 Принимаем данные юзера
+  user: UserContext,
+  progress?: BuildHistoryProgress,
 ): Promise<History> => {
+  const runStep = async <T>(key: string, percent: number, fn: () => Promise<T>): Promise<T> => {
+    try {
+      progress?.onStepStart?.(key);
+      const result = await fn();
+      progress?.onStepDone?.(key, percent);
+      return result;
+    } catch (error) {
+      progress?.onStepError?.(key, error);
+      throw error;
+    }
+  };
+
+  console.log('🧹 Подготовка текста');
   const fixedInitialHistory = removeLineBreaks(initialHistory);
   const isPublic = user.role === 'ADMIN';
 
   const parsedStory: History = {
     title: { de: '', ru: '' },
     authorId: user.id,
-    isPublic: isPublic,
+    isPublic,
     description: '',
     fullStory: { de: fixedInitialHistory, ru: '' },
     languageLevel: 'A1',
@@ -36,8 +56,8 @@ export const buildHistory = async (
     likesCount: 0,
     createdDate: new Date().toISOString(),
     updatedDate: new Date().toISOString(),
-    authorName: 'AI Story Generator',
-    authorRole: 'ADMIN',
+    authorName: user.name,
+    authorRole: user.role,
     words: [],
     sentences: [],
     tokenTiming: [],
@@ -45,47 +65,47 @@ export const buildHistory = async (
     imageUrl: '',
   };
 
-  // --- 1. GPT обработка
   console.log('1/8 GPT обработка');
-  const ctx = await processStoryWithGPT(fixedInitialHistory);
+  const ctx = await runStep('gpt', 15, () => processStoryWithGPT(fixedInitialHistory));
+
   parsedStory.title = ctx.title;
   parsedStory.description = ctx.description;
   parsedStory.fullStory = ctx.fullStory;
   parsedStory.languageLevel = ctx.languageLevel;
 
-  // --- 2. Генерация изображения
   console.log('2/8 Генерация изображения');
-  parsedStory.imageUrl = await generateImage(fixedInitialHistory, parsedStory.id);
+  parsedStory.imageUrl = await runStep('image', 30, () => generateImage(fixedInitialHistory, parsedStory.id));
 
-  // --- 3. Генерация TTS
   console.log('3/8 TTS генерация .mp3');
-  parsedStory.audioUrl = await generateTTS(parsedStory.fullStory.de, parsedStory.id);
+  parsedStory.audioUrl = await runStep('tts', 45, () => generateTTS(parsedStory.fullStory.de, parsedStory.id));
 
-  // --- 4. Транскрипция
-  console.log('4/8-1 получаем .mp3');
-  const localPath = getLocalMediaPath(parsedStory.id, 'mp3');
-  console.log('4/8-2 Транскрипция из .mp3');
-  const data = await transcribeMp3(localPath);
-  console.log('✅ 4/8 Транскрипция из .mp3');
+  console.log('4/8 Транскрипция из .mp3');
+  const data = await runStep('transcribe', 60, async () => {
+    const localPath = getLocalMediaPath(parsedStory.id, 'mp3');
+    console.log('🎧 MP3 path:', localPath);
+    return transcribeMp3(localPath);
+  });
+
   parsedStory.tokenTiming = data.words;
 
-  // --- 5. Линковка таймингов
   console.log('5/8 Линковка таймингов');
-  const linked = await linkTokenTimingToText(parsedStory.fullStory.de, parsedStory.tokenTiming);
-  parsedStory.tokenTiming = linked;
-  console.log('✅ 5/8 Линковка таймингов готово');
 
-  // --- 6. Анализ слов
+  parsedStory.tokenTiming = await runStep('timing', 70, async () =>
+    linkTokenTimingToText(parsedStory.fullStory.de, parsedStory.tokenTiming),
+  );
+
   console.log('6/8 Анализ слов');
-  parsedStory.words = await analyzeWords(fixedInitialHistory, parsedStory.tokenTiming);
+  parsedStory.words = await runStep('words', 82, () => analyzeWords(fixedInitialHistory, parsedStory.tokenTiming));
 
-  // --- 7. Сохранение
   console.log('7/8 Анализ грамматики');
-  parsedStory.sentences = await analyzeGrammar(parsedStory.fullStory.de, parsedStory.languageLevel);
+  parsedStory.sentences = await runStep('grammar', 95, () =>
+    analyzeGrammar(parsedStory.fullStory.de, parsedStory.languageLevel),
+  );
 
-  // --- 8. Сохранение
   console.log('8/8 Сохранение');
-  await insertHistory(parsedStory);
+  await runStep('save', 100, () => insertHistory(parsedStory));
+
+  console.log('✅ История полностью создана:', parsedStory.id);
 
   return parsedStory;
 };
