@@ -1,65 +1,60 @@
-// src/utils/mediaStorage.ts
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import axios from 'axios';
 
 const BASE_MEDIA_DIR = path.join(__dirname, '../../public/media');
-console.log('🗂 BASE_MEDIA_DIR:', BASE_MEDIA_DIR);
 
-/**
- * Генерация пути хранения по id (двухуровневая структура)
- */
 export function generateMediaPath(id: string, ext: string): string {
   const hash = crypto.createHash('md5').update(id).digest('hex');
   const folder1 = hash.slice(0, 2);
   const folder2 = hash.slice(2, 4);
 
   const fullDir = path.join(BASE_MEDIA_DIR, folder1, folder2);
+
   if (!fs.existsSync(fullDir)) {
     fs.mkdirSync(fullDir, { recursive: true });
-    console.log('📁 Создана папка:', fullDir);
   }
 
-  const filename = `${id}.${ext}`;
-  const fullPath = path.join(fullDir, filename);
-  console.log('💾 Генерируется путь для сохранения файла:', fullPath);
-  return fullPath;
+  return path.join(fullDir, `${id}.${ext}`);
 }
 
-/**
- * Возвращает публичный URL
- */
 export function getPublicMediaUrl(id: string, ext: string): string {
   const hash = crypto.createHash('md5').update(id).digest('hex');
   const folder1 = hash.slice(0, 2);
   const folder2 = hash.slice(2, 4);
-  const url = `/media/${folder1}/${folder2}/${id}.${ext}`;
-  console.log('🌐 Публичный URL для файла:', url);
-  return url;
+
+  return `/media/${folder1}/${folder2}/${id}.${ext}`;
 }
 
-/**
- * Скачивает изображение по URL и сохраняет в правильную папку.
- */
 export async function downloadAndStoreImage(id: string, imageUrl: string): Promise<string> {
   const filePath = generateMediaPath(id, 'png');
 
-  console.log('🔗 Скачиваем изображение с URL:', imageUrl);
-  const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+  const response = await axios.get(imageUrl, {
+    responseType: 'arraybuffer',
+    timeout: 30000,
+  });
+
   fs.writeFileSync(filePath, response.data);
-  console.log('✅ Изображение сохранено по пути:', filePath);
 
   return getPublicMediaUrl(id, 'png');
 }
 
-/**
- * Сохраняет бинарный буфер (например, аудио)
- */
+export async function saveBase64Image(id: string, b64Json: string): Promise<string> {
+  const filePath = generateMediaPath(id, 'png');
+
+  const buffer = Buffer.from(b64Json, 'base64');
+
+  fs.writeFileSync(filePath, buffer);
+
+  return getPublicMediaUrl(id, 'png');
+}
+
 export async function saveBuffer(id: string, buffer: Buffer, ext: string): Promise<string> {
   const filePath = generateMediaPath(id, ext);
+
   fs.writeFileSync(filePath, buffer);
-  console.log('✅ Буфер сохранен по пути:', filePath);
+
   return getPublicMediaUrl(id, ext);
 }
 
@@ -67,21 +62,14 @@ export function getLocalMediaPath(id: string, ext: string): string {
   const hash = crypto.createHash('md5').update(id).digest('hex');
   const folder1 = hash.slice(0, 2);
   const folder2 = hash.slice(2, 4);
-  const localPath = path.join(BASE_MEDIA_DIR, folder1, folder2, `${id}.${ext}`);
-  console.log('🖥 Локальный путь к файлу:', localPath);
-  return localPath;
+
+  return path.join(BASE_MEDIA_DIR, folder1, folder2, `${id}.${ext}`);
 }
 
-/**
- * Удаляет файл, если он существует
- */
 export function deleteFileIfExists(id: string, ext: string): void {
   const filePath = getLocalMediaPath(id, ext);
 
   if (fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);
-    console.log(`🗑 Файл удалён: ${filePath}`);
-  } else {
-    console.log(`⚠️ Файл не найден: ${filePath}`);
   }
 }
