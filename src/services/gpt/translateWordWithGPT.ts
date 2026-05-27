@@ -47,7 +47,8 @@ export async function translateWordWithGPT(
 }
 
 Правила:
-
+- Если слово на немецком переведи на русский
+- Если слово на русском переведи на немецкий с правильным артиклем (der/die/das) для существительных
 - field "word" должен содержать слово НА ИСХОДНОМ языке
 - field "translation" должен содержать ПЕРЕВОД
 - направление перевода определяется пользователем
@@ -76,7 +77,7 @@ export async function translateWordWithGPT(
       },
       {
         role: 'user',
-        content: `Translate from ${sourceLanguage} to ${targetLanguage}: "${text}"`,
+        content: `Вот слово: "${text}"`,
       },
     ],
   });
