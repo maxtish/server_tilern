@@ -15,6 +15,7 @@ import {
   requestPasswordResetController,
   resetPasswordController,
   getMeController,
+  changeEmailController,
 } from '../controllers/authController';
 
 const router = Router();
@@ -37,4 +38,5 @@ router.post('/send-verification-email', authenticate, resendEmailVerificationCon
 router.post('/forgot-password', authRateLimit, requestPasswordResetController);
 router.post('/reset-password', authRateLimit, resetPasswordController);
 router.get('/me', authenticate, getMeController);
+router.post('/change-email', authenticate, changeEmailController);
 export default router;

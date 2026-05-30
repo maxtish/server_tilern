@@ -15,6 +15,8 @@ export type SecurityEventType =
   | 'email_verified'
   | 'email_verification_sent'
   | 'email_verification_failed'
+  | 'email_changed'
+  | 'email_change_failed'
   | 'password_reset_requested'
   | 'password_reset_request_failed'
   | 'password_reset_success'

@@ -70,6 +70,12 @@ export async function registerUser(params: {
     throw new AuthError('VALIDATION_ERROR', 'Email and password required');
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!isValidEmail(normalizedEmail)) {
+    throw new AuthError('VALIDATION_ERROR', 'Введите корректный email');
+  }
+
   const hashed = await bcrypt.hash(password, 10);
   const client = await pool.connect();
 
@@ -80,7 +86,7 @@ export async function registerUser(params: {
         VALUES($1, $2, $3, false)
         RETURNING *
         `,
-      [email, hashed, name],
+      [normalizedEmail, hashed, name],
     );
 
     const user = mapDBUserToUser(result.rows[0]);
@@ -134,10 +140,16 @@ export async function loginUser(params: {
     throw new AuthError('VALIDATION_ERROR', 'Email and password required');
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!isValidEmail(normalizedEmail)) {
+    throw new AuthError('VALIDATION_ERROR', 'Введите корректный email');
+  }
+
   const client = await pool.connect();
 
   try {
-    const result = await client.query<DBUser>('SELECT * FROM "User" WHERE email = $1', [email]);
+    const result = await client.query<DBUser>('SELECT * FROM "User" WHERE email = $1', [normalizedEmail]);
 
     const dbUser = result.rows[0];
 
@@ -354,4 +366,70 @@ export async function getMe(userId: string) {
   }
 
   return mapDBUserToUser(dbUser);
+}
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+export async function changeUserEmail(params: { userId: string; email: string }) {
+  const email = params.email.trim().toLowerCase();
+
+  if (!email) {
+    throw new AuthError('VALIDATION_ERROR', 'Email required');
+  }
+
+  if (!isValidEmail(email)) {
+    throw new AuthError('VALIDATION_ERROR', 'Введите корректный email');
+  }
+
+  const client = await pool.connect();
+
+  try {
+    const existing = await client.query<DBUser>(
+      `
+      SELECT *
+      FROM "User"
+      WHERE email = $1
+        AND id <> $2
+      `,
+      [email, params.userId],
+    );
+
+    if (existing.rows[0]) {
+      throw new AuthError('EMAIL_ALREADY_EXISTS', 'Email already exists');
+    }
+
+    const result = await client.query<DBUser>(
+      `
+      UPDATE "User"
+      SET email = $1,
+          email_verified = false,
+          updated_at = NOW()
+      WHERE id = $2
+      RETURNING *
+      `,
+      [email, params.userId],
+    );
+
+    const dbUser = result.rows[0];
+
+    if (!dbUser) {
+      throw new AuthError('USER_NOT_FOUND', 'User not found');
+    }
+
+    const user = mapDBUserToUser(dbUser);
+
+    await createAndSendEmailVerification({
+      userId: user.id,
+      email: user.email,
+    });
+
+    return {
+      success: true,
+      user,
+    };
+  } finally {
+    client.release();
+  }
 }

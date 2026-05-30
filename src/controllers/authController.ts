@@ -9,6 +9,7 @@ import {
   getSessions,
   loginWithGoogle,
   getMe,
+  changeUserEmail,
 } from '../services/auth/authService';
 import { logSecurityEvent } from '../services/security/securityAuditService';
 import { verifyEmailByToken, resendEmailVerification } from '../services/auth/emailVerificationService';
@@ -427,6 +428,59 @@ export const getMeController = async (req: Request, res: Response, next: NextFun
 
     return res.json({ user });
   } catch (err) {
+    next(err);
+  }
+};
+
+export const changeEmailController = async (req: Request, res: Response, next: NextFunction) => {
+  const userAgent = req.headers['user-agent'];
+
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { email } = req.body;
+
+    const result = await changeUserEmail({
+      userId: req.user.id,
+      email,
+    });
+
+    await logSecurityEvent({
+      userId: req.user.id,
+      eventType: 'email_changed',
+      ipAddress: req.ip,
+      userAgent,
+      metadata: {
+        newEmailDomain: typeof email === 'string' ? email.split('@')[1] || null : null,
+      },
+    });
+
+    return res.json(result);
+  } catch (err: any) {
+    await logSecurityEvent({
+      userId: req.user?.id || null,
+      eventType: 'email_change_failed',
+      ipAddress: req.ip,
+      userAgent,
+      metadata: {
+        reason: err.code || err.message,
+      },
+    });
+
+    if (err.code === 'VALIDATION_ERROR') {
+      return res.status(400).json({ error: err.message });
+    }
+
+    if (err.code === 'EMAIL_ALREADY_EXISTS') {
+      return res.status(400).json({ error: 'Email already exists' });
+    }
+
+    if (err.code === 'USER_NOT_FOUND') {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     next(err);
   }
 };
