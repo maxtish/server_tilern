@@ -35,10 +35,11 @@ class AuthError extends Error {
   }
 }
 
-function issueAccessToken(user: User) {
+function issueAccessToken(user: User, sessionId: string) {
   return signAccessToken({
     id: user.id,
     role: user.role,
+    sessionId,
   });
 }
 
@@ -91,14 +92,14 @@ export async function registerUser(params: {
 
     const user = mapDBUserToUser(result.rows[0]);
 
-    const accessToken = issueAccessToken(user);
-
-    const refreshToken = await issueRefreshToken({
+    const refreshTokenData = await issueRefreshToken({
       userId: user.id,
       deviceInfo,
       userAgent,
       ipAddress,
     });
+
+    const accessToken = issueAccessToken(user, refreshTokenData.sessionId);
 
     /**
      * Отправляем письмо подтверждения.
@@ -114,7 +115,7 @@ export async function registerUser(params: {
     return {
       user,
       accessToken,
-      refreshToken,
+      refreshToken: refreshTokenData.token,
     };
   } catch (err: any) {
     if (err.code === '23505') {
@@ -165,19 +166,19 @@ export async function loginUser(params: {
 
     const user = mapDBUserToUser(dbUser);
 
-    const accessToken = issueAccessToken(user);
-
-    const refreshToken = await issueRefreshToken({
+    const refreshTokenData = await issueRefreshToken({
       userId: user.id,
       deviceInfo,
       userAgent,
       ipAddress,
     });
 
+    const accessToken = issueAccessToken(user, refreshTokenData.sessionId);
+
     return {
       user,
       accessToken,
-      refreshToken,
+      refreshToken: refreshTokenData.token,
     };
   } finally {
     client.release();
@@ -251,19 +252,19 @@ export async function loginWithGoogle(params: {
 
       const user = mapDBUserToUser(dbUser);
 
-      const accessToken = issueAccessToken(user);
-
-      const refreshToken = await issueRefreshToken({
+      const refreshTokenData = await issueRefreshToken({
         userId: user.id,
         deviceInfo,
         userAgent,
         ipAddress,
       });
 
+      const accessToken = issueAccessToken(user, refreshTokenData.sessionId);
+
       return {
         user,
         accessToken,
-        refreshToken,
+        refreshToken: refreshTokenData.token,
       };
     } catch (err) {
       await client.query('ROLLBACK');
@@ -304,21 +305,22 @@ export async function refreshUserToken(refreshToken: string) {
     throw new AuthError('USER_NOT_FOUND_BY_TOKEN', 'User not found');
   }
 
-  const newAccessToken = signAccessToken({
-    id: user.id,
-    role: user.role,
-  });
-
-  const newRefreshToken = await createRefreshToken({
+  const newRefreshTokenData = await createRefreshToken({
     userId: user.id,
     deviceInfo: stored.device_info,
     userAgent: stored.user_agent,
     ipAddress: stored.ip_address,
   });
 
+  const newAccessToken = signAccessToken({
+    id: user.id,
+    role: user.role,
+    sessionId: newRefreshTokenData.sessionId,
+  });
+
   return {
     accessToken: newAccessToken,
-    refreshToken: newRefreshToken,
+    refreshToken: newRefreshTokenData.token,
   };
 }
 
@@ -352,10 +354,10 @@ function normalizeHeader(value?: string | string[]): string | undefined {
 export async function getMe(userId: string) {
   const result = await pool.query<DBUser>(
     `
-      SELECT *
-      FROM "User"
-      WHERE id = $1
-      `,
+    SELECT *
+    FROM "User"
+    WHERE id = $1
+    `,
     [userId],
   );
 

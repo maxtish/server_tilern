@@ -1,17 +1,13 @@
-// src/types/express.d.ts
-
-// Определяем допустимые роли
 export type UserRole = 'USER' | 'PREMIUM' | 'EDITOR' | 'ADMIN';
 
-// Интерфейс для пользователя, который будет храниться в req.user
 export interface AuthUser {
   id: string;
   role: UserRole;
+  sessionId?: string;
   email?: string;
   name?: string;
 }
 
-// Расширяем Request, чтобы добавить поле user
 declare module 'express-serve-static-core' {
   interface Request {
     user?: AuthUser;

@@ -32,7 +32,7 @@ export async function insertRefreshToken(params: {
   userAgent?: string | null;
   ipAddress?: string | null;
 }) {
-  await pool.query(
+  const result = await pool.query<DBRefreshToken>(
     `
     INSERT INTO "RefreshToken"
       (
@@ -45,6 +45,7 @@ export async function insertRefreshToken(params: {
       )
     VALUES
       ($1, $2, $3, $4, $5, $6)
+    RETURNING *
     `,
     [
       params.userId,
@@ -55,6 +56,8 @@ export async function insertRefreshToken(params: {
       params.ipAddress || null,
     ],
   );
+
+  return result.rows[0];
 }
 
 export async function findValidRefreshTokenByHash(tokenHash: string): Promise<DBRefreshToken | null> {
@@ -157,4 +160,20 @@ export async function getUserSessions(userId: string): Promise<UserSession[]> {
   );
 
   return result.rows;
+}
+
+export async function findActiveSessionById(sessionId: string, userId: string): Promise<DBRefreshToken | null> {
+  const result = await pool.query<DBRefreshToken>(
+    `
+    SELECT *
+    FROM "RefreshToken"
+    WHERE id = $1
+      AND user_id = $2
+      AND revoked = false
+      AND expires_at > NOW()
+    `,
+    [sessionId, userId],
+  );
+
+  return result.rows[0] || null;
 }

@@ -1,9 +1,9 @@
 import crypto from 'crypto';
 import { insertRefreshToken } from '../db/refreshTokenDB';
 
-const REFRESH_TTL_DAYS = 30;
+const REFRESH_TOKEN_DAYS = 30;
 
-export function hashRefreshToken(token: string): string {
+export function hashRefreshToken(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
@@ -17,9 +17,9 @@ export async function createRefreshToken(params: {
   const tokenHash = hashRefreshToken(token);
 
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + REFRESH_TTL_DAYS);
+  expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_DAYS);
 
-  await insertRefreshToken({
+  const session = await insertRefreshToken({
     userId: params.userId,
     tokenHash,
     expiresAt,
@@ -28,5 +28,8 @@ export async function createRefreshToken(params: {
     ipAddress: params.ipAddress || null,
   });
 
-  return token;
+  return {
+    token,
+    sessionId: session.id,
+  };
 }
