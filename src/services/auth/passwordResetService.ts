@@ -45,6 +45,7 @@ export async function requestPasswordReset(email: string) {
   await sendPasswordResetEmail({
     to: user.email,
     resetUrl,
+    token,
   });
 
   return { success: true };

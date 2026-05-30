@@ -76,10 +76,10 @@ export async function registerUser(params: {
   try {
     const result = await client.query<DBUser>(
       `
-      INSERT INTO "User"(email, password_hash, name, email_verified)
-      VALUES($1, $2, $3, false)
-      RETURNING *
-      `,
+        INSERT INTO "User"(email, password_hash, name, email_verified)
+        VALUES($1, $2, $3, false)
+        RETURNING *
+        `,
       [email, hashed, name],
     );
 
@@ -204,15 +204,15 @@ export async function loginWithGoogle(params: {
         if (dbUser) {
           const updated = await client.query<DBUser>(
             `
-            UPDATE "User"
-            SET google_id = $1,
-                email_verified = true,
-                name = COALESCE(name, $2),
-                avatar_url = COALESCE(avatar_url, $3),
-                updated_at = NOW()
-            WHERE id = $4
-            RETURNING *
-            `,
+              UPDATE "User"
+              SET google_id = $1,
+                  email_verified = true,
+                  name = COALESCE(name, $2),
+                  avatar_url = COALESCE(avatar_url, $3),
+                  updated_at = NOW()
+              WHERE id = $4
+              RETURNING *
+              `,
             [googleUser.googleId, googleUser.name, googleUser.avatarUrl, dbUser.id],
           );
 
@@ -223,12 +223,12 @@ export async function loginWithGoogle(params: {
       if (!dbUser) {
         const created = await client.query<DBUser>(
           `
-          INSERT INTO "User"
-            (email, google_id, name, avatar_url, role, email_verified)
-          VALUES
-            ($1, $2, $3, $4, 'USER', true)
-          RETURNING *
-          `,
+            INSERT INTO "User"
+              (email, google_id, name, avatar_url, role, email_verified)
+            VALUES
+              ($1, $2, $3, $4, 'USER', true)
+            RETURNING *
+            `,
           [googleUser.email, googleUser.googleId, googleUser.name, googleUser.avatarUrl],
         );
 
@@ -340,10 +340,10 @@ function normalizeHeader(value?: string | string[]): string | undefined {
 export async function getMe(userId: string) {
   const result = await pool.query<DBUser>(
     `
-    SELECT *
-    FROM "User"
-    WHERE id = $1
-    `,
+      SELECT *
+      FROM "User"
+      WHERE id = $1
+      `,
     [userId],
   );
 

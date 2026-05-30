@@ -28,17 +28,52 @@ export async function sendVerificationEmail(params: { to: string; verificationUr
   });
 }
 
-export async function sendPasswordResetEmail(params: { to: string; resetUrl: string }) {
+export async function sendPasswordResetEmail(params: { to: string; resetUrl: string; token: string }) {
   await transporter.sendMail({
     from,
     to: params.to,
     subject: 'Восстановление пароля TiLern',
-    text: `Сбросить пароль: ${params.resetUrl}`,
+    text: `
+Восстановление пароля TiLern
+
+Ваш token для сброса пароля:
+
+${params.token}
+
+Откройте приложение TiLern и вставьте этот token.
+
+Ссылка для восстановления:
+${params.resetUrl}
+
+Если вы не запрашивали сброс пароля, просто игнорируйте это письмо.
+    `,
     html: `
-      <h2>Восстановление пароля</h2>
-      <p>Нажмите на ссылку, чтобы создать новый пароль:</p>
+      <h2>Восстановление пароля TiLern</h2>
+
+      <p>Ваш token для сброса пароля:</p>
+
+      <div style="
+        padding: 14px;
+        background: #f2f2f2;
+        border-radius: 8px;
+        font-size: 18px;
+        font-weight: bold;
+        letter-spacing: 1px;
+        word-break: break-all;
+      ">
+        ${params.token}
+      </div>
+
+      <p>
+        Откройте приложение TiLern и вставьте этот token.
+      </p>
+
+      <p>Ссылка для восстановления:</p>
       <a href="${params.resetUrl}">${params.resetUrl}</a>
-      <p>Если вы не запрашивали сброс пароля, просто игнорируйте это письмо.</p>
+
+      <p style="color: #777;">
+        Если вы не запрашивали сброс пароля, просто игнорируйте это письмо.
+      </p>
     `,
   });
 }

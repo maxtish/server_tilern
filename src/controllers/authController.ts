@@ -15,7 +15,7 @@ import { verifyEmailByToken, resendEmailVerification } from '../services/auth/em
 import { requestPasswordReset, resetPassword } from '../services/auth/passwordResetService';
 
 export const registerController = async (req: Request, res: Response, next: NextFunction) => {
-  const { email, password, name } = req.body;
+  const { email, password, name, deviceInfo } = req.body;
   const userAgent = req.headers['user-agent'];
 
   try {
@@ -23,7 +23,7 @@ export const registerController = async (req: Request, res: Response, next: Next
       email,
       password,
       name,
-      deviceInfo: userAgent,
+      deviceInfo: deviceInfo || userAgent,
       userAgent,
       ipAddress: req.ip,
     });
@@ -33,7 +33,10 @@ export const registerController = async (req: Request, res: Response, next: Next
       eventType: 'register_success',
       ipAddress: req.ip,
       userAgent,
-      metadata: { email },
+      metadata: {
+        email,
+        deviceInfo: deviceInfo || null,
+      },
     });
 
     return res.json(result);
@@ -61,14 +64,14 @@ export const registerController = async (req: Request, res: Response, next: Next
 };
 
 export const loginController = async (req: Request, res: Response, next: NextFunction) => {
-  const { email, password } = req.body;
+  const { email, password, deviceInfo } = req.body;
   const userAgent = req.headers['user-agent'];
 
   try {
     const result = await loginUser({
       email,
       password,
-      deviceInfo: userAgent,
+      deviceInfo: deviceInfo || userAgent,
       userAgent,
       ipAddress: req.ip,
     });
@@ -78,7 +81,10 @@ export const loginController = async (req: Request, res: Response, next: NextFun
       eventType: 'login_success',
       ipAddress: req.ip,
       userAgent,
-      metadata: { email },
+      metadata: {
+        email,
+        deviceInfo: deviceInfo || null,
+      },
     });
 
     return res.json(result);
@@ -110,13 +116,13 @@ export const loginController = async (req: Request, res: Response, next: NextFun
 };
 
 export const googleLoginController = async (req: Request, res: Response, next: NextFunction) => {
-  const { idToken } = req.body;
+  const { idToken, deviceInfo } = req.body;
   const userAgent = req.headers['user-agent'];
 
   try {
     const result = await loginWithGoogle({
       idToken,
-      deviceInfo: userAgent,
+      deviceInfo: deviceInfo || userAgent,
       userAgent,
       ipAddress: req.ip,
     });
@@ -128,6 +134,7 @@ export const googleLoginController = async (req: Request, res: Response, next: N
       userAgent,
       metadata: {
         email: result.user.email,
+        deviceInfo: deviceInfo || null,
       },
     });
 
@@ -139,6 +146,7 @@ export const googleLoginController = async (req: Request, res: Response, next: N
       userAgent,
       metadata: {
         reason: err.code || err.message,
+        deviceInfo: deviceInfo || null,
       },
     });
 

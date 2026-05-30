@@ -1,4 +1,5 @@
 import { OAuth2Client } from 'google-auth-library';
+import dotenv from 'dotenv';
 
 export type GoogleUserPayload = {
   googleId: string;
@@ -7,6 +8,8 @@ export type GoogleUserPayload = {
   name: string | null;
   avatarUrl: string | null;
 };
+
+dotenv.config();
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
