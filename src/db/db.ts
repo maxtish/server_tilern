@@ -21,16 +21,21 @@ export const testDB = async () => {
 
 export const initDB = async () => {
   const client = await pool.connect();
+
   try {
     console.log('✅ НАЧИНАЮ ИНИЦИАЛИЗАЦИЮ БАЗЫ ДАННЫХ');
 
-    // --- Таблица пользователей
+    await client.query(`
+      CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+    `);
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS "User" (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         email TEXT UNIQUE,
         password_hash TEXT,
         google_id TEXT UNIQUE,
+        email_verified BOOLEAN DEFAULT false,
         name TEXT,
         avatar_url TEXT,
         role TEXT DEFAULT 'USER',
@@ -40,21 +45,77 @@ export const initDB = async () => {
     `);
     console.log('✅ Users table is ready');
 
-    // --- Таблица Refresh токенов
     await client.query(`
-      CREATE TABLE IF NOT EXISTS "RefreshToken" (
+  ALTER TABLE "User"
+  ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false;
+`);
+
+    await client.query(`
+  ALTER TABLE "User"
+  ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE;
+`);
+
+    await client.query(`
+  ALTER TABLE "User"
+  ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+`);
+
+    await client.query(`
+  CREATE TABLE IF NOT EXISTS "EmailVerificationToken" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+    token_hash TEXT UNIQUE NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+`);
+    console.log('✅ EmailVerificationToken table is ready');
+
+    await client.query(`
+  CREATE TABLE IF NOT EXISTS "PasswordResetToken" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+    token_hash TEXT UNIQUE NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+`);
+    console.log('✅ PasswordResetToken table is ready');
+
+    await client.query(`
+  CREATE TABLE IF NOT EXISTS "SecurityAuditLog" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES "User"(id) ON DELETE SET NULL,
+    event_type TEXT NOT NULL,
+    ip_address TEXT,
+    user_agent TEXT,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+`);
+    console.log('✅ SecurityAuditLog table is ready');
+
+    await client.query(`
+      DROP TABLE IF EXISTS "RefreshToken";
+
+      CREATE TABLE "RefreshToken" (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID REFERENCES "User"(id) ON DELETE CASCADE,
-        token TEXT UNIQUE NOT NULL,
+        user_id UUID NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+        token_hash TEXT UNIQUE NOT NULL,
         expires_at TIMESTAMP NOT NULL,
         revoked BOOLEAN DEFAULT false,
+        revoked_at TIMESTAMP,
         device_info TEXT,
-        created_at TIMESTAMP DEFAULT NOW()
+        user_agent TEXT,
+        ip_address TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        last_used_at TIMESTAMP
       );
     `);
     console.log('✅ RefreshToken table is ready');
 
-    // --- Таблица историй (с разделением прав доступа)
     await client.query(`
       CREATE TABLE IF NOT EXISTS "History" (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -78,7 +139,6 @@ export const initDB = async () => {
     `);
     console.log('✅ History table is ready');
 
-    // --- Таблица лайков
     await client.query(`
       CREATE TABLE IF NOT EXISTS "HistoryLikes" (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -90,7 +150,6 @@ export const initDB = async () => {
     `);
     console.log('✅ HistoryLikes table is ready');
 
-    // --- Таблица сохранённых слов
     await client.query(`
       CREATE TABLE IF NOT EXISTS "UserWords" (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -107,7 +166,6 @@ export const initDB = async () => {
     `);
     console.log('✅ UserWords table is ready');
 
-    // --- Создание пользователей (Админы и Тестовый юзер)
     const initialUsers = [
       { email: 'admin', pass: 'admin', name: 'Administrator', role: 'ADMIN' },
       { email: 'user', pass: 'user', name: 'User', role: 'USER' },
@@ -118,14 +176,18 @@ export const initDB = async () => {
 
     for (const u of initialUsers) {
       const existing = await client.query('SELECT id FROM "User" WHERE email=$1', [u.email]);
+
       if (existing.rows.length === 0) {
         const hashedPassword = await bcrypt.hash(u.pass, 10);
-        await client.query('INSERT INTO "User"(email, password_hash, name, role) VALUES($1,$2,$3,$4)', [
-          u.email,
-          hashedPassword,
-          u.name,
-          u.role,
-        ]);
+
+        await client.query(
+          `
+          INSERT INTO "User"(email, password_hash, name, role)
+          VALUES($1,$2,$3,$4)
+          `,
+          [u.email, hashedPassword, u.name, u.role],
+        );
+
         console.log(`✅ User created: ${u.email} (${u.role})`);
       } else {
         console.log(`ℹ️ User already exists: ${u.email}`);
@@ -134,7 +196,6 @@ export const initDB = async () => {
   } catch (err) {
     console.error('❌ Database initialization failed:', err);
   } finally {
-    // Важно: закрываем клиент только здесь, когда ВСЕ операции завершены
     client.release();
     console.log('ℹ️ Client released');
   }

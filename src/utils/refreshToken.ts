@@ -1,18 +1,32 @@
 import crypto from 'crypto';
-import { pool } from '../db/db';
+import { insertRefreshToken } from '../db/refreshTokenDB';
 
 const REFRESH_TTL_DAYS = 30;
 
-export const createRefreshToken = async (userId: string, deviceInfo?: string) => {
+export function hashRefreshToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+export async function createRefreshToken(params: {
+  userId: string;
+  deviceInfo?: string | null;
+  userAgent?: string | null;
+  ipAddress?: string | null;
+}) {
   const token = crypto.randomBytes(64).toString('hex');
+  const tokenHash = hashRefreshToken(token);
+
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + REFRESH_TTL_DAYS);
 
-  await pool.query(
-    `INSERT INTO "RefreshToken"(user_id, token, expires_at, device_info)
-     VALUES ($1, $2, $3, $4)`,
-    [userId, token, expiresAt, deviceInfo || null]
-  );
+  await insertRefreshToken({
+    userId: params.userId,
+    tokenHash,
+    expiresAt,
+    deviceInfo: params.deviceInfo || null,
+    userAgent: params.userAgent || null,
+    ipAddress: params.ipAddress || null,
+  });
 
   return token;
-};
+}

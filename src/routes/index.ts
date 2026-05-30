@@ -10,7 +10,6 @@ import auth from './auth';
 
 const router = Router();
 
-// Подключаем все роуты
 router.use(addHistoryRouter);
 router.use(historyRouter);
 router.use('/auth', auth);
@@ -19,4 +18,5 @@ router.use(userWordRoutes);
 router.use(deleteHistoryRoutes);
 router.use(submitGPTHistory);
 router.use(translateRouter);
+
 export default router;
